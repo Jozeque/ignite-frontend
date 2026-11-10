@@ -1,16 +1,218 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex">
-<title>Stride</title>
-<!-- /post/ was the 1:1 session's offer screen in the post-purchase run. The session is no longer offered
-     (Yossi 2026-11-07), so anyone sent here (an open tab, an old link) goes on to the welcome page, which
-     reads the purchase from this tab's sessionStorage as before. -->
-<meta http-equiv="refresh" content="0; url=/welcome.html">
-<script>location.replace('/welcome.html');</script>
-<style>html,body{margin:0;background:#141310}</style>
+<title>Special offer: complete your Stride Bundle | Stride</title>
+<meta name="description" content="Right after your Stride purchase: Tendril and the whole Stride Collection, to complete your Stride Bundle.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<script>
+// Paddle hands the purchase over in ?_ptxn= (as on /post2/). Kept for the offer below, then taken off the address bar
+// before anything else reads it. It must stay the first script in <head>.
+(function () {
+  try {
+    var u = new URL(window.location.href);
+    if (!u.searchParams.has('_ptxn')) return;
+    var t = (u.searchParams.get('_ptxn') || '').trim().toLowerCase();
+    if (/^txn_[0-9a-z]{26}$/.test(t)) {
+      window.STRIDE_POST_TXN = t;
+      try { sessionStorage.setItem('stride_last_txn', t); } catch (e) {}
+    }
+    u.searchParams.delete('_ptxn');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  } catch (e) {}
+})();
+</script>
+<style>
+@font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+:root{
+  --bg:#141310; --bg2:#191611; --raise:#252119; --card:#1b1813; --panel:#1d1b16;
+  --line:rgba(216,201,176,.11);
+  --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+  --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e; --ok:#8fae86;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;font-family:'Outfit',sans-serif;
+     background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6}
+[hidden]{display:none !important}
+a{color:inherit}
+h1{color:var(--ink);font-weight:900;letter-spacing:-.02em;margin:0;line-height:1.02;text-wrap:balance}
+h1:focus{outline:none}
+h2{color:var(--ink);font-weight:900;letter-spacing:-.005em;margin:0;font-size:clamp(26px,3.6vw,40px);line-height:1.08;text-wrap:balance}
+:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+.wrap{width:100%;max-width:1240px;margin:0 auto;padding:0 24px}
+.silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+.kick{margin:0;font-size:12px;letter-spacing:.24em;text-transform:uppercase;font-weight:900;color:var(--copper-lt)}
+.word{display:block;margin:0 0 12px;font-size:15px;font-weight:800;letter-spacing:.42em;color:var(--copper-lt)}
+.brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+header{border-bottom:1px solid var(--line);background:rgba(20,19,16,.9);backdrop-filter:blur(8px);position:sticky;top:0;z-index:20}
+.hrow{display:flex;align-items:center;justify-content:space-between;height:60px}
+/* The way out, always on top (Yossi 2026-11-10: "a button at the top of the screen: Take me to the Stride download
+   page"). The header stays put while the page scrolls. */
+.dl-top{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 16px;border-radius:999px;
+  border:1px solid rgba(216,201,176,.3);color:var(--ink);font-size:13px;font-weight:700;line-height:1.2;text-decoration:none;
+  transition:border-color .15s,background .15s}
+.dl-top:hover{border-color:var(--copper-lt);background:rgba(221,154,82,.08)}
+.logo{font-weight:900;font-size:17px;letter-spacing:-.02em;text-decoration:none;background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+footer{border-top:1px solid var(--line);padding:26px 0}
+footer a{color:var(--ink3);text-decoration:none}
+footer a:hover{color:var(--ink2)}
+main{flex:1}
+
+/* Waiting */
+#wait{padding:120px 0;text-align:center}
+.dots{display:flex;gap:8px;justify-content:center;margin-top:18px}
+.dots i{width:9px;height:9px;border-radius:50%;background:var(--copper-lt);opacity:.25;animation:blink 1.2s infinite}
+.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+@keyframes blink{50%{opacity:1}}
+
+.btn-copper,.btn-flat{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:14px;
+  padding:17px 30px;font:inherit;font-weight:900;font-size:15px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn-copper{background:linear-gradient(180deg,var(--ember),var(--copper));color:#1b1206;
+  box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 16px 32px -16px rgba(198,113,43,.9);transition:transform .15s,filter .15s}
+.btn-copper:hover{transform:translateY(-2px);filter:brightness(1.06)}
+.btn-copper[aria-busy="true"]{opacity:.7;pointer-events:none}
+.btn-flat{background:var(--raise);color:var(--ink2);font-size:13px}
+.btn-flat:hover{color:var(--ink)}
+.skip{background:none;border:0;padding:8px 2px;font:inherit;font-size:14px;color:var(--ink3);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.skip:hover{color:var(--ink2)}
+
+/* The thank-you line over everything */
+.paid{display:flex;align-items:center;gap:10px;margin:22px 0 0;font-size:14px;color:var(--ok);font-weight:700}
+.paid::before{content:"";width:16px;height:9px;border-left:2.5px solid var(--ok);border-bottom:2.5px solid var(--ok);transform:rotate(-45deg) translateY(-3px)}
+
+/* ── The hero: the offer beside the Bundle's own picture, huge (Yossi: "right together like the Bundle in the strip,
+   only huge across the whole screen") ── */
+.hero{padding:18px 0 6px}
+.hero-top{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:44px;align-items:center}
+.hero h1{font-size:clamp(38px,4.1vw,58px);margin-top:12px}
+.lead{margin:14px 0 0;max-width:34rem;font-size:clamp(15.5px,1.25vw,18px);line-height:1.55;color:var(--ink2)}
+.lead b{color:var(--ink);font-weight:800}
+.price{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 18px;margin-top:20px}
+.price b{font-size:clamp(46px,5vw,70px);font-weight:900;line-height:1;color:var(--ink);letter-spacing:-.03em}
+/* The struck price big enough to read at a glance (Yossi 2026-11-10: "it's really small"). */
+.price s{font-size:clamp(30px,3.1vw,44px);font-weight:800;line-height:1;color:var(--ink2);letter-spacing:-.02em;
+  text-decoration-thickness:4px;text-decoration-color:rgba(221,154,82,.95)}
+.price .what{flex-basis:100%;margin-top:4px;font-size:13px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3)}
+.acts{display:flex;flex-wrap:wrap;align-items:center;gap:12px 22px;margin-top:20px}
+.fine{margin:12px 0 0;max-width:36rem;font-size:12.5px;line-height:1.6;color:var(--ink3)}
+.fine a{color:inherit}
+.bad{color:#e6795f}
+
+/* The picture: the homepage strip's Stride Bundle card (2026-11-07, his reference) at the size of the screen, drawn
+   in percent of its own box the same way: Tendril's real window top left, the Collection's synths as discs in
+   /collection/'s colours top right, Stride's lanes in front; the full-size sources of the card's own two shots. */
+.art{position:relative;width:100%;aspect-ratio:300/190}
+.art > img{position:absolute;display:block;max-width:none;object-fit:cover;box-shadow:0 34px 60px -26px rgba(0,0,0,.95)}
+.art .a-tdr{left:0;top:2%;width:40%;height:46%;border-radius:14px;border:1px solid rgba(221,154,82,.35);object-position:50% 0}
+.art .a-stride{left:4%;top:38%;width:96%;height:62%;border-radius:16px;border:1px solid rgba(221,154,82,.45);object-position:50% 40%;
+  box-shadow:0 40px 80px -30px rgba(0,0,0,.95),0 0 90px -40px rgba(198,113,43,.4)}
+/* Side by side rather than overlapped as on the small card: at this size an overlap cuts the synths' names. */
+.a-discs{position:absolute;left:31%;top:9%;width:69%;height:26%}
+.a-discs .disc{position:absolute;top:0;left:0;width:19.4%;
+  box-shadow:0 0 0 3px #24201a,0 0 0 4px rgba(216,201,176,.16),0 18px 30px -14px rgba(0,0,0,.95)}
+.a-discs .disc:nth-child(2){left:20.15%}
+.a-discs .disc:nth-child(3){left:40.3%}
+.a-discs .disc:nth-child(4){left:60.45%}
+.a-discs .disc:nth-child(5){left:80.6%}
+.disc{position:relative;flex:none;width:clamp(58px,7.4vw,108px);aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.22),transparent 42%),radial-gradient(circle at 72% 80%,rgba(0,0,0,.6),transparent 56%),
+             conic-gradient(from 200deg,var(--a),var(--b) 30%,var(--a) 55%,var(--b) 80%,var(--a));
+  box-shadow:0 0 0 5px #24201a,0 0 0 6px rgba(216,201,176,.16),0 22px 34px -16px rgba(0,0,0,.95)}
+.disc img{position:relative;max-width:72%;max-height:44%;width:auto;height:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.65))}
+.disc img.wide{max-width:86%}
+.disc.art-d img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover;filter:none}
+.disc .w{position:relative;font-size:clamp(7px,.7vw,10px);font-weight:800;letter-spacing:.3em;margin-left:.3em;color:var(--copper-lt);text-shadow:0 3px 10px rgba(0,0,0,.6)}
+.ticket{position:absolute;right:-2%;bottom:-7%;width:clamp(116px,12.5vw,186px);transform:rotate(-7deg);
+  filter:drop-shadow(0 10px 16px rgba(0,0,0,.5)) drop-shadow(0 2px 3px rgba(0,0,0,.35));animation:pulse 2.4s ease-in-out infinite}
+.ticket svg{display:block;width:100%;height:auto;overflow:visible}
+@keyframes pulse{0%,100%{scale:1}50%{scale:1.05}}
+@media (prefers-reduced-motion:reduce){ .ticket{animation:none} .dots i{animation:none;opacity:.6} }
+
+/* WHAT YOU GET, on the first screen under the offer (Yossi 2026-11-10: "all of this must be in the hero: explain
+   briefly what they get in the Collection and why it's worth it; right now it hides below and people will skip it"):
+   the five packs as /collection/ counts them, then the homepage strip's formula on one line. */
+.inside{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
+.inside-h{margin:0;max-width:66rem;font-size:15.5px;line-height:1.55;color:var(--ink2)}
+.inside-h b{color:var(--ink);font-weight:900}
+.packs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:16px}
+.pk{display:flex;align-items:center;gap:12px;min-width:0}
+.pk > div{min-width:0}
+.pk .disc{width:54px;box-shadow:0 0 0 3px #24201a,0 0 0 4px rgba(216,201,176,.16),0 12px 20px -10px rgba(0,0,0,.9)}
+.pk .disc .w{font-size:7px;letter-spacing:.2em}
+.pk .nm{margin:0;font-size:13px;font-weight:900;line-height:1.2;letter-spacing:.05em;text-transform:uppercase;color:var(--ink)}
+.pk .ct{margin:3px 0 0;font-size:12.5px;line-height:1.35;color:var(--ink2)}
+.pk .ct b{color:var(--ink);font-weight:800}
+.pk .ex{margin:2px 0 0;font-size:11.5px;font-weight:800;line-height:1.3;letter-spacing:.03em;color:var(--copper-lt)}
+.eq{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0 18px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.eq > div{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"op val" ". cap";align-items:baseline;align-content:start}
+.eq i{grid-area:op;margin-right:12px;font-style:normal;font-size:clamp(1.3rem,1.9vw,1.9rem);font-weight:300;line-height:1;color:var(--copper-lt)}
+.eq b{grid-area:val;font-size:clamp(1.9rem,2.9vw,2.7rem);font-weight:900;line-height:1;color:var(--ink);letter-spacing:-.03em;white-space:nowrap}
+.eq span{grid-area:cap;margin-top:7px;font-size:10.5px;font-weight:800;line-height:1.45;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3)}
+.eq .res span{color:var(--copper-lt)}
+
+/* The two of them, in the site's own words */
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;margin-top:56px}
+.blk{padding:34px 34px 30px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);border:1px solid var(--line)}
+.blk p{margin:14px 0 0;font-size:16px;line-height:1.7}
+.film{position:relative;margin-top:22px;border-radius:14px;overflow:hidden;background:#0e0d0b;border:1px solid var(--line);aspect-ratio:16/9}
+.film video,.film img{display:block;width:100%;height:100%;object-fit:cover}
+
+/* The order, always in reach */
+.bar{position:sticky;bottom:0;z-index:15;margin-top:56px;padding:14px 0 calc(14px + env(safe-area-inset-bottom));
+  background:rgba(20,19,16,.95);backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+.bar .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.bar .t{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.bar .t span{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.bar .t s{font-size:22px;font-weight:800;color:var(--ink2);text-decoration-thickness:3px;text-decoration-color:rgba(221,154,82,.95)}
+.bar .t b{font-size:28px;font-weight:900;line-height:1;color:var(--ink)}
+/* Out of the way while the hero's own button is on screen; in reach once it has scrolled off. */
+.bar{transition:transform .3s ease}
+.bar.away{transform:translateY(110%)}
+@media (prefers-reduced-motion:reduce){ .bar{transition:none} }
+
+/* Done */
+#done{padding:110px 0;text-align:center}
+#done h1{font-size:clamp(34px,4.6vw,56px)}
+#done p{margin:16px auto 0;max-width:36rem;font-size:17px}
+
+@media (max-width:1023px){
+  /* One column, the picture right under the heading so the first screen has it (the bar below carries the button
+     until the hero's own comes into view). */
+  .hero{display:grid;grid-template-columns:minmax(0,1fr);padding-top:16px}
+  .hero-top,.ht-text{display:contents}
+  /* What they get comes before the price on a phone: the bar below carries the button meanwhile. */
+  .hero .kick{order:1} .hero h1{order:2} .hero .art{order:3} .hero .lead{order:4} .hero .inside{order:5}
+  .hero .price{order:6} .hero .acts{order:7} .hero .fine{order:8}
+  .art{max-width:720px;margin:24px auto 10px}
+  .inside{margin-top:22px}
+  .packs{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
+  .packs .pk:last-child{grid-column:1 / -1}
+  .two{grid-template-columns:minmax(0,1fr)}
+  .eq{grid-template-columns:minmax(0,1fr);gap:14px}
+  .eq > div{grid-template-columns:30px 110px minmax(0,1fr);grid-template-areas:"op val cap";align-items:center}
+  .eq i{margin-right:0;font-size:1.7rem}
+  .eq b{font-size:2.3rem}
+  .eq .st b{font-size:1.95rem}
+  .eq span{margin-top:0}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px}
+  .packs{grid-template-columns:minmax(0,1fr);gap:12px}
+  .pk .disc{width:46px}
+  .hrow{height:auto;min-height:60px;padding-top:8px;padding-bottom:8px;gap:12px}
+  .dl-top{max-width:210px;padding:8px 12px;font-size:12px;text-align:center}
+  .blk{padding:24px 20px}
+  .acts .btn-copper{width:100%}
+  .bar .t s,.bar .t span{display:none}
+  .bar .btn-copper{padding:14px 18px;font-size:13px}
+}
+</style>
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -78,5 +280,247 @@
   else send();
 })();</script>
 </head>
-<body></body>
+<body>
+
+<header><div class="wrap hrow">
+  <a class="logo" href="/">STRIDE</a>
+  <a class="dl-top" href="/welcome.html">Take me to the Stride download page <span aria-hidden="true">&rarr;</span></a>
+</div></header>
+
+<main>
+
+  <section id="wait" class="wrap">
+    <p class="silk">Preparing your offer</p>
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+  </section>
+
+  <div id="offer" hidden>
+    <div class="wrap">
+      <p class="paid">Payment received. Your Stride download is right after this.</p>
+
+      <!-- THE HERO: the offer and its picture side by side, across the whole screen -->
+      <section class="hero">
+        <div class="hero-top">
+        <div class="ht-text">
+          <p class="kick">Special offer &middot; right after your purchase</p>
+          <h1 tabindex="-1">Complete your <span class="brand">Stride Bundle.</span></h1>
+          <p class="lead">Add <b>Tendril</b> and the whole <b>Stride Collection</b> to your order, and your Stride becomes the full Stride Bundle. This price is only here, right after your purchase.</p>
+          <div class="price">
+            <b data-now>+$39</b><s data-was>$118</s>
+            <span class="what">Tendril + the Stride Collection</span>
+          </div>
+          <div class="acts">
+            <button type="button" class="btn-copper" data-buy>Add to my order <span data-now>+$39</span></button>
+            <button type="button" class="skip" data-skip>No thanks, take me to my download</button>
+          </div>
+          <p class="fine bad" data-err hidden></p>
+          <p class="fine">One payment, in your currency. Your Stride is yours either way.</p>
+        </div>
+        <div class="art" aria-hidden="true">
+          <img class="a-tdr" src="/media/tendril/tendril-face.webp" alt="" width="1600" height="1160" decoding="async">
+          <img class="a-stride" src="/media/stride/film/poster-ui-1280.webp" alt="" width="1280" height="720" decoding="async">
+          <div class="a-discs">
+            <span class="disc" style="--a:#2f8fb0;--b:#0c171d"><img class="wide" src="/media/synths/serum-2.webp" alt="" decoding="async"></span>
+            <span class="disc" style="--a:#7b5cd6;--b:#130f21"><img src="/media/synths/vital.webp" alt="" decoding="async"></span>
+            <span class="disc" style="--a:#a4763f;--b:#15110d"><img src="/media/synths/diva.webp" alt="" decoding="async"></span>
+            <span class="disc" style="--a:#c6712b;--b:#1a0f07"><span class="w">TENDRIL</span></span>
+            <span class="disc art-d"><img src="/media/synths/sounds-racks.webp" alt="" decoding="async"></span>
+          </div>
+          <span class="ticket"><svg viewBox="0 0 360 232" focusable="false"><defs><linearGradient id="potg" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="#f7b25c"/><stop offset=".55" stop-color="#ec9a45"/><stop offset="1" stop-color="#d9832f"/></linearGradient></defs><path d="M22,0 H338 Q360,0 360,22 V89 A27,27 0 0 0 360,143 V210 Q360,232 338,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#potg)"/><path d="M26,13 H334 Q347,13 347,26 V98 A18,18 0 0 0 347,134 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z" fill="none" stroke="#a85c19" stroke-width="3.2" opacity=".85"/><text x="180" y="96" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="58" fill="#1d130a" letter-spacing="-0.4">SPECIAL</text><text x="180" y="176" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="74" fill="#1d130a" letter-spacing="-1">OFFER</text></svg></span>
+        </div>
+        </div>
+        <!-- WHAT YOU GET, under the offer on the first screen: the five packs as /collection/ counts them, the formula -->
+        <div class="inside">
+          <p class="inside-h"><b>What you get.</b> Tendril, the three-engine synth, plus the whole Stride Collection: 120 StrideChains for Serum 2, Vital, Diva and Tendril. Not presets: sound design systems, each mapped in Stride with five states to start from. Load one, press play and reroll it until it sounds like yours.</p>
+          <div class="packs">
+          <div class="pk"><span class="disc" style="--a:#2f8fb0;--b:#0c171d"><img class="wide" src="/media/synths/serum-2.webp" alt="" decoding="async"></span>
+            <div><p class="nm">Serum 2</p><p class="ct"><b>40</b> StrideChains &middot; <b>200</b> states</p><p class="ex">+ all 111 Stride wavetables</p></div></div>
+          <div class="pk"><span class="disc" style="--a:#7b5cd6;--b:#130f21"><img src="/media/synths/vital.webp" alt="" decoding="async"></span>
+            <div><p class="nm">Vital</p><p class="ct"><b>40</b> StrideChains &middot; <b>200</b> states</p><p class="ex">+ all 111 Stride wavetables</p></div></div>
+          <div class="pk"><span class="disc" style="--a:#a4763f;--b:#15110d"><img src="/media/synths/diva.webp" alt="" decoding="async"></span>
+            <div><p class="nm">Diva</p><p class="ct"><b>20</b> StrideChains &middot; <b>100</b> states</p><p class="ex">Analog modelling</p></div></div>
+          <div class="pk"><span class="disc" style="--a:#c6712b;--b:#1a0f07"><span class="w">TENDRIL</span></span>
+            <div><p class="nm">Tendril</p><p class="ct"><b>20</b> StrideChains &middot; <b>100</b> states</p><p class="ex">Three engines</p></div></div>
+          <div class="pk"><span class="disc art-d"><img src="/media/synths/sounds-racks.webp" alt="" decoding="async"></span>
+            <div><p class="nm">Sounds &amp; Racks</p><p class="ct"><b>250+</b> sounds &middot; <b>15</b> Ableton racks</p><p class="ex">The Experimental Collection</p></div></div>
+        </div>
+        <div class="eq" role="img" aria-label="120 StrideChains, times 111 Stride original wavetables, times 5 states in every chain, times everything Stride does: endless sound design variations">
+          <div><b>120</b><span>StrideChains for Serum 2, Vital, Diva and Tendril</span></div>
+          <div><i aria-hidden="true">&times;</i><b>111</b><span>Stride original wavetables</span></div>
+          <div><i aria-hidden="true">&times;</i><b>5</b><span>States in every chain</span></div>
+          <div class="st"><i aria-hidden="true">&times;</i><b class="brand">Stride</b><span>Regenerate, mutate, draw, lock</span></div>
+          <div class="res"><i aria-hidden="true">=</i><b class="brand">&infin;</b><span>Endless sound design variations</span></div>
+        </div>
+        </div>
+      </section>
+
+      <!-- THE TWO OF THEM, in the site's own words -->
+      <section class="two">
+        <article class="blk">
+          <span class="word">TENDRIL</span>
+          <h2>Three engines. <span class="brand">One evolving sound design playground.</span></h2>
+          <p>Shape the harmonics, push the effects, and let three independent patterns play off each other. Explore with Stride to discover fresh sounds, mudpies and sequences from the same patch.</p>
+          <p>It comes with 22 StrideChains: sound design systems ready to load and explore.</p>
+          <div class="film"><video controls playsinline preload="none" poster="/media/tendril/showcase/poster.webp" width="1920" height="1080" aria-label="Tendril showcase: sounds played inside Stride"><source src="/media/tendril/showcase/tendril-examples-720.mp4" type="video/mp4"></video></div>
+        </article>
+        <article class="blk">
+          <span class="word">STRIDECHAINS</span>
+          <h2>Not presets. <span class="brand">A playground for sound design exploration.</span></h2>
+          <p>A preset is one sound. A StrideChain is a sound design system: a patch for Serum 2, Vital, Diva or Tendril, mapped in Stride with the lanes set, the ranges chosen and the core knobs locked.</p>
+          <p>Five states to start from, and from every one of them Stride takes the same instrument somewhere new.</p>
+          <div class="film"><video controls playsinline preload="none" poster="/media/collection/film/poster-1280.webp" width="1920" height="1080" aria-label="The Stride Collection showcase"><source src="/media/collection/film/collection-showcase-1080.mp4" type="video/mp4"></video></div>
+        </article>
+      </section>
+
+      <p class="fine" style="margin-top:34px">Synths not included: each StrideChains pack needs its own synth (Serum 2, Vital, Diva or Tendril), and the racks need Ableton Live. The Collection is an instant download: by buying you ask for the files right away and agree that your 14-day right to cancel ends once the download starts. <a href="/refund.html">Refund policy</a></p>
+      <p class="fine">Checkout by Paddle, in your currency. Tendril's key and the Collection's downloads arrive by mail.</p>
+    </div>
+
+    <div class="bar"><div class="wrap">
+      <div class="t"><span>Tendril + the Stride Collection</span><s data-was>$118</s><b data-now>+$39</b></div>
+      <button type="button" class="btn-copper" data-buy>Add to my order</button>
+    </div></div>
+  </div>
+
+  <section id="done" class="wrap" hidden>
+    <p class="silk">Added</p>
+    <h1 tabindex="-1">Your Stride Bundle is complete.</h1>
+    <p>Tendril's key and the Collection's downloads are on their way by mail. Taking you to your Stride download&hellip;</p>
+    <p><a class="btn-flat" href="/welcome.html">Go to my download</a></p>
+  </section>
+
+</main>
+
+<footer><div class="wrap silk">Stride &middot; Sound design engine &middot; <a href="/privacy.html">Privacy</a> &middot; <a href="/refund.html">Refunds</a> &middot; <a href="/terms.html">Terms</a></div></footer>
+
+<script>
+(function () {
+  'use strict';
+  // The Stride Bundle, completed right after a Stride purchase (Yossi 2026-11-10: "a post-purchase SPECIAL OFFER screen,
+  // the completion to the Bundle for an additional $39"; "in the ORDER BUMP show the price 49, and in the post-purchase
+  // offer 39"). generate_midi (bundle_offer, bundle_checkout) prices it for the purchase itself, in the currency it was
+  // paid in, and opens ONE checkout. No tracker on this page: the server reports the sale.
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
+  var DOWNLOAD = '/welcome.html';   // their Stride download: after "no thanks", a paid completion, or no purchase here
+  var RUN = '/tendril/';            // no offer for this purchase: the run as it was (Tendril's own offer, then the download)
+  function q(s) { return document.querySelector(s); }
+  function qa(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
+  function money(amount, currency) {
+    var digits = 2;
+    try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+    var major = Number(amount) / Math.pow(10, digits);
+    var whole = Math.abs(major - Math.round(major)) < 1e-9;
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency,
+        minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: whole ? 0 : digits }).format(major);
+    } catch (e) { return currency + ' ' + major.toFixed(digits); }
+  }
+  var TXN = window.STRIDE_POST_TXN || '';
+  if (!TXN) { try { TXN = sessionStorage.getItem('stride_last_txn') || ''; } catch (e) {} }
+  TXN = /^txn_[0-9a-z]{26}$/.test(TXN) ? TXN : '';
+  var ANSWER = '';
+  try { ANSWER = localStorage.getItem('stride_consent_ads') || ''; } catch (e) {}
+  if (ANSWER !== 'granted' && ANSWER !== 'denied') ANSWER = '';
+  // The browser's own match keys, with the checkout only, as /owners/ sends them.
+  function withVisit(body) {
+    function ck(n) {
+      var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + n + '=([^;]*)'));
+      try { return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; }
+    }
+    if (ANSWER) body.consent_ads = ANSWER;
+    if (ANSWER === 'denied') return body;
+    try {
+      var fbp = ck('_fbp'), fbc = ck('_fbc'), xid = ck('stride_xid');
+      if (/^fb\.\d\.\d{10,13}\.\d{1,25}$/.test(fbp)) body.fbp = fbp;
+      if (/^fb\.\d\.\d{10,13}\.[A-Za-z0-9_-]{8,500}$/.test(fbc)) body.fbc = fbc;
+      if (/^[A-Za-z0-9._-]{1,64}$/.test(xid)) body.external_id = xid;
+    } catch (e) {}
+    return body;
+  }
+  function post(body) {
+    return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); });
+  }
+  function go(to) { window.location.replace(to); }
+  function show(id) {
+    ['wait', 'offer', 'done'].forEach(function (s) { q('#' + s).hidden = s !== id; });
+    var h = q('#' + id + ' h1');
+    if (h && id !== 'wait') { try { h.focus({ preventScroll: true }); } catch (e) {} }
+  }
+
+  if (!TXN) { go(DOWNLOAD); return; }
+  var timer = setTimeout(function () { go(RUN); }, 12000);   // never keep a buyer from their download for long
+  post({ action: 'bundle_offer', txn: TXN })
+    .then(function (d) {
+      clearTimeout(timer);
+      if (!d || d.status !== 'open' || !d.price || !d.price.amount) { go(RUN); return; }
+      var now = '+' + money(d.price.amount, d.price.currency), was = d.was ? money(d.was.amount, d.was.currency) : '';
+      qa('[data-now]').forEach(function (n) { n.textContent = now; });
+      qa('[data-was]').forEach(function (n) { n.textContent = was; n.hidden = !was; });
+      show('offer');
+    })
+    .catch(function () { clearTimeout(timer); go(RUN); });
+
+  var busy = false, paid = false;
+  function err(text) { var e = q('[data-err]'); e.textContent = text; e.hidden = false; }
+  qa('[data-buy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (busy) return;
+      if (!window.Paddle) { err("The checkout didn't load. Refresh the page and try again."); return; }
+      busy = true;
+      qa('[data-buy]').forEach(function (x) { x.setAttribute('aria-busy', 'true'); });
+      q('[data-err]').hidden = true;
+      post(withVisit({ action: 'bundle_checkout', txn: TXN, consent_dl: '2026-11-09' }))
+        .then(function (d) {
+          busy = false;
+          qa('[data-buy]').forEach(function (x) { x.removeAttribute('aria-busy'); });
+          if (d && d.ok && d.transaction_id) {
+            Paddle.Checkout.open({ transactionId: d.transaction_id, settings: { displayMode: 'overlay', theme: 'dark', locale: 'en' } });
+            return;
+          }
+          var st = (d && d.status) || '';
+          if (st === 'used' || st === 'owned' || st === 'expired' || st === 'invalid' || st === 'off') { go(DOWNLOAD); return; }
+          err("Couldn't open the checkout just now. Try again in a moment.");
+        })
+        .catch(function () {
+          busy = false;
+          qa('[data-buy]').forEach(function (x) { x.removeAttribute('aria-busy'); });
+          err("Couldn't reach the checkout. Check your connection and try again.");
+        });
+    });
+  });
+  q('[data-skip]').addEventListener('click', function () { go(DOWNLOAD); });
+  // The bar at the bottom shows once the hero's own button has scrolled off the screen.
+  try {
+    var bar = q('.bar'), heroBuy = q('.hero [data-buy]');
+    if (bar && heroBuy && 'IntersectionObserver' in window) {
+      bar.classList.add('away');
+      new IntersectionObserver(function (es) { bar.classList.toggle('away', es[es.length - 1].isIntersecting); }).observe(heroBuy);
+    }
+  } catch (e) {}
+
+  function done() {
+    if (paid) return;
+    paid = true;
+    qa('video').forEach(function (v) { try { v.pause(); } catch (e) {} });
+    show('done');
+    setTimeout(function () { go(DOWNLOAD); }, 4500);
+  }
+  try {
+    if (window.Paddle) {
+      Paddle.Initialize({
+        token: PADDLE_TOKEN,
+        eventCallback: function (ev) {
+          if (ev && ev.name === 'checkout.completed') {
+            done();
+            setTimeout(function () { try { Paddle.Checkout.close(); } catch (e) {} }, 2500);
+          }
+        }
+      });
+    }
+  } catch (e) {}
+})();
+</script>
+</body>
 </html>

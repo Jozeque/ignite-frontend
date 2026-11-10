@@ -2675,7 +2675,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.7fad811634.css">
+<link rel="stylesheet" href="/_legacy/css/index.f1312d7fa2.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -2976,16 +2976,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              left, the name, what is in it, the upgrade and the bundle's total, our Black Friday ticket at 50% on the
              corner, hanging off the card; redrawn to his reference the same day: the three products' real art,
              the whole card clickable, nothing on the strip moving when it goes in). The script prints the upgrade's price,
-             the total and the struck total, and draws the ticket (strideTicketSvg('50%')). -->
+             the total and the struck total, and draws the ticket at the Bundle's percent (strideBundlePct()). -->
         <!-- Since 2026-11-10 the hero shows the Stride Bundle as this small row, the pricing card's own (Yossi: "go back to
              the version before the Bundle came into the strip, keep the Bundle's order bump small like here"); the card
              below stays in the page for the scripts that read it, hidden in the hero by CSS. -->
         <div class="addon addon-compact addon-bundle" data-bump="bundle" hidden>
               <span class="addon-pair" aria-hidden="true"><img class="ap-t" src="/media/tendril/film/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><img class="ap-c" src="/assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async"></span>
               <div class="addon-body">
-                <div class="addon-t"><span class="bump-off">Passa allo Stride Bundle </span><span class="bump-on">✓ Stride Bundle </span><span class="addon-p">+$39.20</span></div>
+                <div class="addon-t"><span class="bump-off">Passa allo Stride Bundle </span><span class="bump-on">✓ Stride Bundle </span><span class="addon-p">+$49</span></div>
                 <div class="addon-s">Stride + Tendril + la Stride Collection</div>
-                <div class="addon-s addon-bprice"><span>Tutti e tre a metà prezzo:</span> <s data-bundle-was>$217</s> <b data-bundle-now>$108.50</b></div>
+                <div class="addon-s addon-bprice"><span>Totale del bundle</span> <s data-bundle-was>$217</s> <b data-bundle-now>$118.30</b></div>
               </div>
               <button type="button" class="addon-btn" aria-pressed="false" aria-label="Passa allo Stride Bundle"
                       onclick="strideToggleAddon(event)"><span class="bump-off">Passa al bundle</span><span class="bump-on">Rimuovi</span></button>
@@ -3017,8 +3017,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p class="bcard-facts">120 StrideChains · 111 wavetable · 250+ suoni · 15 rack</p>
             <div class="bcard-row">
               <button type="button" class="addon-btn bcard-btn" aria-pressed="false" aria-label="Passa allo Stride Bundle"
-                      onclick="strideToggleAddon(event)"><span class="bump-off">Passa al bundle <span class="addon-p">+$39.20</span> &rarr;</span><span class="bump-on">Rimuovi</span></button>
-              <p class="bcard-total"><span class="bump-off">Totale del bundle</span><span class="bump-on">✓ Bundle aggiunto</span> <b data-bundle-now>$108.50</b> <s data-bundle-was>$217</s></p>
+                      onclick="strideToggleAddon(event)"><span class="bump-off">Passa al bundle <span class="addon-p">+$49</span> &rarr;</span><span class="bump-on">Rimuovi</span></button>
+              <p class="bcard-total"><span class="bump-off">Totale del bundle</span><span class="bump-on">✓ Bundle aggiunto</span> <b data-bundle-now>$118.30</b> <s data-bundle-was>$217</s></p>
             </div>
           </div>
           <span class="bcard-ticket" aria-hidden="true"></span>
@@ -4187,9 +4187,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="addon addon-compact addon-bundle" data-bump="bundle" style="margin-bottom:13px" hidden>
             <span class="addon-pair" aria-hidden="true"><img class="ap-t" src="/media/tendril/film/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><img class="ap-c" src="/assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async"></span>
             <div class="addon-body">
-              <div class="addon-t"><span class="bump-off">Passa allo Stride Bundle </span><span class="bump-on">✓ Stride Bundle </span><span class="addon-p">+$39.20</span></div>
+              <div class="addon-t"><span class="bump-off">Passa allo Stride Bundle </span><span class="bump-on">✓ Stride Bundle </span><span class="addon-p">+$49</span></div>
               <div class="addon-s">Stride + Tendril + la Stride Collection</div>
-              <div class="addon-s addon-bprice"><span>Tutti e tre a metà prezzo:</span> <s data-bundle-was>$217</s> <b data-bundle-now>$108.50</b></div>
+              <div class="addon-s addon-bprice"><span>Totale del bundle</span> <s data-bundle-was>$217</s> <b data-bundle-now>$118.30</b></div>
             </div>
             <button type="button" class="addon-btn" aria-pressed="false" aria-label="Passa allo Stride Bundle"
                     onclick="strideToggleAddon(event)"><span class="bump-off">Passa al bundle</span><span class="bump-on">Rimuovi</span></button>
@@ -5228,13 +5228,23 @@ function openBuy() { toggleBuyModal(); }
     // The Stride Bundle in the order bump (Yossi 2026-11-07: "the ORDER BUMP, so it can be upgraded to a STRIDE BUNDLE,
     // 50% off the whole bundle: STRIDE + TENDRIL + COLLECTION, the old prices DISABLED"): Stride, Tendril at its owner
     // price and the whole Stride Collection at its PUBLIC price (PADDLE_PRICE_COLLECTION_VALUE), with this one Paddle
-    // discount on all three: 50%, restrict_to those three prices, never typeable, ending with Black Friday. A checkout
-    // takes one discount, so with the bundle in the cart it stands in for the page's code (strideCartDiscount); its 50%
+    // discount on all three, restrict_to those three prices, never typeable, ending with Black Friday. A checkout
+    // takes one discount, so with the bundle in the cart it stands in for the page's code (strideCartDiscount); it
     // covers Stride too. Empty: no bundle anywhere, and the bump test below runs as before.
-    // STRIDEBUNDLE50, made 2026-11-07 (expires 2026-12-01 08:00 UTC with EARLYBF30; US preview 49.50 + 24.50 + 34.50).
-    const STRIDE_BUNDLE_DISCOUNT  = 'dsc_01m6v6ynbx4s2bp6bhb5zejadw';
+    // Since 2026-11-10 the bump adds the Bundle for $49 over Black Friday's $69.30 (Yossi: "in the ORDER BUMP show the
+    // price 49, and in the post-purchase offer 39"; /post/ completes it for $39 after a purchase of Stride alone):
+    // STRIDEBUNDLE, 45.48% off the three, $217 -> $118.30 in the US (53.97 + 26.71 + 37.62), the one two-decimal percent
+    // that lands on 49 dollars exactly. It took over from STRIDEBUNDLE50 (dsc_01m6v6ynbx4s2bp6bhb5zejadw, 50%, +$39.20).
+    // STRIDEBUNDLE made 2026-11-10 on his "Yes, all three" (expires 2026-12-01 08:00 UTC with EARLYBF30); Paddle's
+    // previews: US and EU +49.00 exactly, UK +39.65, Canada and Australia +68.98, Israel +147.35.
+    const STRIDE_BUNDLE_DISCOUNT  = 'dsc_01m72ytkj97qd4vgqhx25e957p';
     // A bundle buyer owns all three, so nothing after checkout has anything to offer them: straight to the download.
     const PADDLE_BUNDLE_SUCCESS_URL = 'https://stridehub.io/welcome.html';
+    // While the bump is the Stride Bundle (Black Friday), whoever buys Stride alone meets the Bundle's completion first
+    // (Yossi 2026-11-10: "a post-purchase SPECIAL OFFER screen, the completion to the Bundle"): Tendril and the whole
+    // Collection for $39, the bump's $49 less ten. /post/ hands anyone it has no offer for on to /tendril/, the run
+    // as it was, and a "no thanks" or a paid completion on to the download.
+    const PADDLE_BUNDLE_OFFER_SUCCESS_URL = 'https://stridehub.io/post/';
     // The post-purchase run (Yossi 2026-10-22): /tendril/ offers Tendril at the Stride owner
     // price, then welcome.html hands over the download. The page decides for itself whether it
     // has anything to show and goes straight on if it does not, so someone who already owns
@@ -5347,7 +5357,7 @@ function openBuy() { toggleBuyModal(); }
     // its discount exists; the test's two sides come back by themselves after it (nothing about the bundle is stored).
     const STRIDE_BUMP_TEST = (window.STRIDE_BF && /^dsc_[a-z0-9]{26}$/.test(STRIDE_BUNDLE_DISCOUNT)) ? 'bundle' : 'ab';
     const TENDRIL_ADDON_PRICE = 49;       // dollars; Paddle's own price per country replaces it
-    const BUNDLE_PERCENT = 50;            // the Stride Bundle's discount, for the dollar figures before Paddle answers
+    const BUNDLE_PERCENT = 45.48;         // the Stride Bundle's discount, for the dollar figures before Paddle answers
     let strideBumpArmMemo = '';
     function strideBumpArm() {
         if (strideBumpArmMemo) return strideBumpArmMemo;
@@ -5871,7 +5881,10 @@ function openBuy() { toggleBuyModal(); }
         set('.bfd-s .bfd-now', strideMoneyExact(now));
         set('.bfd-s .bfd-was', list - now >= 0.5 ? strideMoneyExact(list) : '');
         var bTk = box.querySelector('.bfd-b > .bfd-tk');
-        if (bTk && !bTk.firstChild) bTk.innerHTML = strideTicketSvg('50%');
+        if (bTk && bTk.getAttribute('data-pct') !== strideBundlePct()) {
+            bTk.innerHTML = strideTicketSvg(strideBundlePct());
+            bTk.setAttribute('data-pct', strideBundlePct());
+        }
         var bf = (!!strideBfDid && strideCodeId === strideBfDid)
             || (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]);
         var sTk = box.querySelector('.bfd-s .bfd-tk');
@@ -5948,7 +5961,9 @@ function openBuy() { toggleBuyModal(); }
     // that buyer on to /post2/ the same way.
     function strideSuccessUrl() {
         var b = strideBumpIn();
-        return b === 'bundle' ? PADDLE_BUNDLE_SUCCESS_URL : b === 'tendril' ? PADDLE_TENDRIL_BUMP_SUCCESS_URL : PADDLE_SUCCESS_URL;
+        if (b === 'bundle') return PADDLE_BUNDLE_SUCCESS_URL;
+        if (b === 'tendril') return PADDLE_TENDRIL_BUMP_SUCCESS_URL;
+        return strideBumpArm() === 'bundle' ? PADDLE_BUNDLE_OFFER_SUCCESS_URL : PADDLE_SUCCESS_URL;
     }
     // The one discount the cart carries: the Stride Bundle's own while the bundle is in the cart, else the page's code
     // (Black Friday's EARLYBF30, an ad's, a personal one), or none.
@@ -5974,11 +5989,19 @@ function openBuy() { toggleBuyModal(); }
         return stride + (strideAddonActive() ? strideBumpPrice() : 0);
     }
 
-    // The Stride Bundle in dollars, until Paddle has priced it: $99 + $49 + $69 = $217, and half of each.
+    // The Stride Bundle in dollars, until Paddle has priced it: $99 + $49 + $69 = $217, and each at its discount, to
+    // the cent as Paddle rounds it ($53.97 + $26.71 + $37.62 = $118.30).
     function strideBundleDollars() {
-        var half = function (v) { return Math.round(v * (100 - BUNDLE_PERCENT)) / 100; };
+        var off = function (v) { return Math.round(v * (100 - BUNDLE_PERCENT)) / 100; };
         return { list: STRIDE_PRICE + TENDRIL_ADDON_PRICE + COLLECTION_VALUE,
-                 charged: half(STRIDE_PRICE) + half(TENDRIL_ADDON_PRICE) + half(COLLECTION_VALUE) };
+                 charged: off(STRIDE_PRICE) + off(TENDRIL_ADDON_PRICE) + off(COLLECTION_VALUE) };
+    }
+    // The Bundle's ticket: what its discount takes off the three for this visitor (Paddle's own figures once it has
+    // answered), rounded down: 45% for the $49 bump (2026-11-10). It read a fixed 50% while the discount was 50%.
+    function strideBundlePct() {
+        var b = strideBundle || strideBundleDollars();
+        var p = b.list > 0 ? Math.floor((b.list - b.charged) / b.list * 100 + 1e-9) : 0;
+        return (p > 0 ? p : Math.floor(BUNDLE_PERCENT)) + '%';
     }
 
     // The same order at the ordinary price, without any code: Paddle's preview without the
@@ -6238,12 +6261,13 @@ function openBuy() { toggleBuyModal(); }
             if (tdr || bdl) {
                 row.querySelectorAll('.addon-p').forEach(function (p) { p.textContent = '+' + money; });
                 if (bdl) {
-                    // Our Black Friday ticket at 50% on the card's corner (Yossi 2026-11-07), drawn once.
+                    // Our Black Friday ticket on the card's corner (Yossi 2026-11-07), at the Bundle's own percent.
                     row.querySelectorAll('.bcard-ticket').forEach(function (el) {
-                        if (!el.firstChild) el.innerHTML = strideTicketSvg('50%');
+                        var pct = strideBundlePct();
+                        if (el.getAttribute('data-pct') !== pct) { el.innerHTML = strideTicketSvg(pct); el.setAttribute('data-pct', pct); }
                     });
                     // The three at their own prices, struck ("the old prices DISABLED"), beside what all three cost
-                    // at the bundle's 50%: both are Paddle's figures for this visitor once it has answered.
+                    // at the bundle's discount: both are Paddle's figures for this visitor once it has answered.
                     const b = strideBundle || strideBundleDollars();
                     row.querySelectorAll('[data-bundle-was]').forEach(function (el) { el.textContent = strideMoneyExact(b.list); });
                     row.querySelectorAll('[data-bundle-now]').forEach(function (el) { el.textContent = strideMoneyExact(b.charged); });
@@ -6304,12 +6328,12 @@ function openBuy() { toggleBuyModal(); }
         // add-on in the order the struck total is no longer 30% off, so the seal says what is saved.
         // Since 2026-11-07 every visit holds Black Friday's EARLYBF30 (STRIDE_BF), so the ticket is there for
         // everyone while Stride is the whole order.
-        // With the Stride Bundle in the order (2026-11-07) the ticket stays and reads 50%, the bundle's own Black
-        // Friday discount, so the hero says the same as the card and keeps its shape (a ticket, not "Save $108.50").
+        // With the Stride Bundle in the order (2026-11-07) the ticket stays and reads the bundle's own Black Friday
+        // percent (45% since the $49 bump, 2026-11-10), so the hero keeps its shape (a ticket, not "Save $98.70").
         const bundleIn = on && bdl;
         const ticket = showSave && ((!on && ((!!strideBfDid && strideCodeId === strideBfDid)
             || (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]))) || bundleIn);
-        const ticketPct = bundleIn ? '50%' : '30%';
+        const ticketPct = bundleIn ? strideBundlePct() : '30%';
         document.querySelectorAll('.sd-price-box').forEach(function (box) {
             const was = box.querySelector('.sd-was');
             const seal = box.querySelector('.sd-save');
@@ -8253,10 +8277,14 @@ function openBuy() { toggleBuyModal(); }
             buyModal.classList.toggle('has-bft', !!look);
             document.documentElement.classList.toggle('bf-buying', !!look);
             if (!look) return;
-            // The deal in the cart (Yossi 2026-11-07): with the Stride Bundle in the order the ticket says its 50%,
-            // not Stride's 30%. Both end at Black Friday's end, so the stub's clock is the same.
+            // The deal in the cart (Yossi 2026-11-07): with the Stride Bundle in the order the ticket says the
+            // Bundle's own percent, not Stride's 30%. Both end at Black Friday's end, so the stub's clock is the same.
             var pct = '30%';
-            try { if (typeof strideBumpIn === 'function' && strideBumpIn() === 'bundle') pct = '50%'; } catch (e) {}
+            try {
+                if (typeof strideBumpIn === 'function' && strideBumpIn() === 'bundle') {
+                    pct = typeof strideBundlePct === 'function' ? strideBundlePct() : '45%';
+                }
+            } catch (e) {}
             if (look + pct !== buyDrawn) {
                 buyDrawn = look + pct;
                 buyT.classList.toggle('is-half', look === 'offer');
