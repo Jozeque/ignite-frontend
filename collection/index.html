@@ -888,6 +888,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mk-hsum{display:flex;align-items:baseline;gap:12px}
   .mk-hsum .mk-price{font-size:2.7rem}
   .mk-hsum s{font-size:1.2rem}
+  /* Black Friday (2026-11-10): the homepage's ticket (strideTicketSvg's drawing) by the hero's price, and each card's
+     regular price struck beside its half. */
+  .mk-bf{display:inline-block;flex:none;align-self:center;width:96px;line-height:0;margin-left:2px}
+  .mk-bf svg{display:block;width:100%;height:auto;overflow:visible;pointer-events:none;transform:rotate(-8deg);
+    filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)) drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+  .mk-pr b s.mk-pwas{margin-left:7px;font-size:13px;font-weight:800;color:var(--ink3)}
+  @media (max-width:639px){ .mk-bf{width:84px} }
   .mk-top{margin-top:40px}
   .mk-pkhint{margin-bottom:18px;font-size:15.5px;line-height:1.6;color:var(--ink2)}
   .mk-pk:not(.on) .mk-disc{filter:grayscale(.85);opacity:.55}
@@ -988,7 +995,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .mk-end p{font-size:1.25rem}
   }
 </style>
-<link rel="stylesheet" href="/_legacy/css/collection-index.a69bee789a.css">
+<link rel="stylesheet" href="/_legacy/css/collection-index.026a2e8684.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -1503,7 +1510,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              after the discount"): what the cards below come to, the same parts bought one by one struck beside it,
              and the button. It follows every Remove and Re-add. -->
         <div class="mk-hbuy">
-          <div class="mk-hsum"><span class="mk-price" data-h-now>$69</span><s class="was" data-h-was>$100.99</s></div>
+          <div class="mk-hsum"><span class="mk-price" data-h-now>$69</span><s class="was" data-h-was>$100.99</s><span class="mk-bf" data-bf-badge role="img" aria-label="Black Friday sale: 50% off" hidden><svg viewBox="0 0 360 232" aria-hidden="true" focusable="false"><defs><linearGradient id="bftgc" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="#f7b25c"/><stop offset=".55" stop-color="#ec9a45"/><stop offset="1" stop-color="#d9832f"/></linearGradient></defs><path d="M22,0 H338 Q360,0 360,22 V89 A27,27 0 0 0 360,143 V210 Q360,232 338,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#bftgc)"/><path d="M26,13 H334 Q347,13 347,26 V98 A18,18 0 0 0 347,134 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z" fill="none" stroke="#a85c19" stroke-width="3.2" opacity=".85"/><text x="180" y="76" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="47" fill="#1d130a" letter-spacing="-0.4">BLACK FRIDAY</text><line x1="92" y1="97" x2="140" y2="97" stroke="#1d130a" stroke-width="3.4" stroke-linecap="round"/><text x="180" y="106" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="800" font-size="27" fill="#1d130a" letter-spacing="2">SALE</text><line x1="220" y1="97" x2="268" y2="97" stroke="#1d130a" stroke-width="3.4" stroke-linecap="round"/><text x="180" y="203" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="112" fill="#1d130a" letter-spacing="-3">50%</text></svg></span></div>
           <button class="mk-btn" type="button" data-buy="hero">Get the whole Collection</button>
         </div>
         <p class="mk-note" data-note="hero" aria-live="polite" hidden></p>
@@ -1703,8 +1710,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var picked = {};
   ready.forEach(function (p) { picked[p.key] = true; });   // everything starts in (2026-11-08)
   var coll = true;
-  // Local prices once Paddle answers: { id: { minor } }.
-  var local = {}, currency = 'USD', digits = 2;
+  // Local prices once Paddle answers: { id: { minor } }. local = what this visitor pays, reg = the same price without
+  // Black Friday's discount (struck beside it while that runs).
+  var local = {}, reg = {}, currency = 'USD', digits = 2;
+  // ── Black Friday (Yossi 2026-11-10: "put the regular price as the original price and a 50% Black Friday badge on it,
+  // that's the promotion; users who go to checkout from there get the discount at checkout"). COLLECTIONBF50 is Paddle's
+  // 50% off the eight prices above, made by Yossi 2026-11-10: never typeable, ends 2026-12-01 08:00 UTC with EARLYBF30
+  // and STRIDEBUNDLE50. While it runs, every price here is Paddle's price with it, the regular one is struck beside it,
+  // the Black Friday ticket sits by the hero's price, and every checkout carries it. If Paddle does not take it, or once
+  // it has ended, the page is the regular one again. Empty: no Black Friday on this page.
+  var BF_DISCOUNT = 'dsc_01m72nfnadh156093w85wbenyf';   // COLLECTIONBF50
+  var bf = !!BF_DISCOUNT && Date.now() < 1796112000000;
 
   function fmt(major, cur) {
     cur = cur || currency;
@@ -1714,14 +1730,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         minimumFractionDigits: whole ? 0 : undefined, maximumFractionDigits: whole ? 0 : undefined }).format(major);
     } catch (e) { return '$' + (whole ? Math.round(major) : major.toFixed(2)); }
   }
-  function price(id, usd) {
-    var l = local[id];
+  function regPrice(id, usd) {
+    var l = reg[id];
     return l ? l.minor / Math.pow(10, digits) : usd;
+  }
+  // What this visitor pays: Black Friday's half while it runs (half the USD figure until Paddle answers).
+  function price(id, usd) {
+    if (!bf) return regPrice(id, usd);
+    var l = local[id];
+    return l ? l.minor / Math.pow(10, digits) : Math.round(usd * 50) / 100;
   }
   function packPrice(p) { return price(p.price, p.usd); }
   function collPrice(withPacks) { return withPacks ? price(COLL.withPacks, COLL.usdWith) : price(COLL.alone, COLL.usdAlone); }
   function allPrice() { return price(ALL_FOUR.price, ALL_FOUR.usd); }
   function wholePrice() { return price(WHOLE.price, WHOLE.usd); }
+  // The same without Black Friday's discount.
+  function packReg(p) { return regPrice(p.price, p.usd); }
+  function collReg(withPacks) { return withPacks ? regPrice(COLL.withPacks, COLL.usdWith) : regPrice(COLL.alone, COLL.usdAlone); }
+  // A card's regular price, struck right after its own while Black Friday runs.
+  function struck(pp, text) {
+    var s = pp.querySelector('[data-p-was]');
+    if (!s) {
+      if (!text) return;
+      s = document.createElement('s');
+      s.className = 'was mk-pwas';
+      s.setAttribute('data-p-was', '');
+      pp.insertBefore(s, pp.firstChild.nextSibling);
+    }
+    s.textContent = text;
+    s.hidden = !text;
+  }
 
   // What the picks cost, the cheapest way Paddle sells them. On a tie, the one with more in it.
   function totals() {
@@ -1732,7 +1770,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (n && ready.length === PACKS.length) opts.push({ mode: 'all', rank: 1, now: allPrice() + (coll ? collPrice(true) : 0) });
     if (any) opts.push({ mode: 'whole', rank: 2, now: wholePrice() });
     opts.sort(function (a, b) { var d = a.now - b.now; return Math.abs(d) > 0.004 ? d : b.rank - a.rank; });
-    return { keys: keys, n: n, any: any, now: any ? opts[0].now : 0, sum: sum, mode: any ? opts[0].mode : 'parts' };
+    var mode = any ? opts[0].mode : 'parts';
+    // The same cover's regular price: what Black Friday strikes.
+    var regular = mode === 'whole' ? regPrice(WHOLE.price, WHOLE.usd)
+      : mode === 'all' ? regPrice(ALL_FOUR.price, ALL_FOUR.usd) + (coll ? collReg(true) : 0)
+      : keys.reduce(function (a, p) { return a + packReg(p); }, 0) + (coll ? collReg(n > 0) : 0);
+    return { keys: keys, n: n, any: any, now: any ? opts[0].now : 0, sum: sum, mode: mode, reg: any ? regular : 0 };
   }
 
   function chainsIn(keys) { return keys.reduce(function (a, p) { return a + p.n; }, 0); }
@@ -1752,10 +1795,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       var pp = q('[data-p]', tile);
       if (pp && k !== 'coll') {
         var p = PACKS.filter(function (x) { return x.key === k; })[0];
-        if (p && p.ready) pp.firstChild.nodeValue = fmt(packPrice(p));
+        if (p && p.ready) { pp.firstChild.nodeValue = fmt(packPrice(p)); struck(pp, bf ? fmt(packReg(p)) : ''); }
       }
       if (pp && k === 'coll') {
         pp.firstChild.nodeValue = fmt(collPrice(true));
+        struck(pp, bf ? fmt(collReg(true)) : '');
         var sm = q('small', pp); if (sm) sm.textContent = 'with any pack, ' + fmt(collPrice(false)) + ' alone';
       }
     });
@@ -1777,8 +1821,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     q('[data-t-what]').textContent = what;
     q('[data-t-sub]').textContent = sub;
     var was = q('[data-t-was]');
-    was.hidden = !(t.any && t.sum > t.now + 0.004);
-    was.textContent = was.hidden ? '' : fmt(t.sum);
+    // Struck: the same cover's regular price while Black Friday runs, else the parts bought one by one when they cost more.
+    var wasV = bf ? t.reg : t.sum;
+    was.hidden = !(t.any && wasV > t.now + 0.004);
+    was.textContent = was.hidden ? '' : fmt(wasV);
+    var tk = q('[data-bf-badge]');
+    if (tk) tk.hidden = !bf;
     q('[data-t-now]').textContent = t.any ? fmt(t.now) : '';
     // Every buy button (the hero's, the bar's, the end's) sells what the cards hold, and says so.
     qa('[data-buy]').forEach(function (btn) {
@@ -1894,8 +1942,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       try { if (window.StrideTrack) StrideTrack.push('begin_checkout', value); } catch (e2) {}
       try { sessionStorage.setItem('stride_checkout_value', JSON.stringify(value)); } catch (e2) {}
       try { if (window.strideClarity) window.strideClarity(clarityName); } catch (e2) {}
-      Paddle.Checkout.open({ items: items, customData: custom(),
-        settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark', successUrl: 'https://stridehub.io/welcome.html' } });
+      var open = { items: items, customData: custom(),
+        settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark', successUrl: 'https://stridehub.io/welcome.html' } };
+      if (bf) open.discountId = BF_DISCOUNT;   // Black Friday's half, the price the page shows
+      Paddle.Checkout.open(open);
       note(noteSel, '');
     } catch (e) { note(noteSel, FAILED); }
   }
@@ -1921,18 +1971,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     var ids = ready.map(function (p) { return p.price; });
     if (ready.length === PACKS.length) ids.push(ALL_FOUR.price);
     ids.push(COLL.withPacks, COLL.alone, WHOLE.price);
+    // Paddle's prices for this visitor: the regular ones, and while Black Friday runs the same with its discount.
+    // Fills `into`, answers how much the discount took off in all.
+    function fill(into, res) {
+      var d = (res || {}).data || {}, lis = (d.details || {}).lineItems || [], off = 0;
+      currency = d.currencyCode || currency;
+      try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+      lis.forEach(function (li) {
+        var t = li.totals || {}, minor = parseInt(t.total, 10);
+        off += parseInt(t.discount, 10) || 0;
+        if (li.price && li.price.id && isFinite(minor) && minor > 0) into[li.price.id] = { minor: minor };
+      });
+      return off;
+    }
+    var items = ids.map(function (id) { return { priceId: id, quantity: 1 }; });
     try {
-      Paddle.PricePreview({ items: ids.map(function (id) { return { priceId: id, quantity: 1 }; }) })
-        .then(function (res) {
-          var d = (res || {}).data || {}, lis = (d.details || {}).lineItems || [];
-          currency = d.currencyCode || currency;
-          try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
-          lis.forEach(function (li) {
-            var minor = parseInt((li.totals || {}).total, 10);
-            if (li.price && li.price.id && isFinite(minor) && minor > 0) local[li.price.id] = { minor: minor };
-          });
-          draw();
-        }).catch(function () {});
+      Paddle.PricePreview({ items: items }).then(function (res) { fill(reg, res); draw(); }).catch(function () {});
+      // Only a discount Paddle actually takes is shown: one it refuses (or one that has ended) leaves the page regular.
+      if (bf) Paddle.PricePreview({ items: items, discountId: BF_DISCOUNT })
+        .then(function (res) { if (!(fill(local, res) > 0)) bf = false; draw(); })
+        .catch(function () { bf = false; draw(); });
     } catch (e) {}
   });
   draw();
