@@ -54,13 +54,11 @@
     html.sd-hold .sd-total, html.sd-hold .sd-was, html.sd-hold .sd-save, html.sd-hold .sd-cta-price,
     html.sd-hold .m-cta-price, html.sd-hold .addon-p, html.sd-hold .addon-was, html.sd-hold .sd-swap,
     html.sd-hold .sd-stride, html.sd-hold .bf-was, html.sd-hold .bf-now, html.sd-hold .bf-buy,
-    html.sd-hold [data-bundle-now], html.sd-hold [data-bundle-was], html.sd-hold .bfd-now, html.sd-hold .bfd-was,
-    html.sd-hold .hv-now, html.sd-hold .hv-go-pb {
+    html.sd-hold [data-bundle-now], html.sd-hold [data-bundle-was], html.sd-hold .bfd-now, html.sd-hold .bfd-was {
         visibility: hidden; opacity: 0;
     }
     .sd-total, .sd-was, .sd-save, .sd-cta-price, .m-cta-price, .addon-p, .addon-was, .sd-swap,
-    .sd-stride, .bf-was, .bf-now, .bf-buy, [data-bundle-now], [data-bundle-was], .bfd-now, .bfd-was,
-    .hv-now, .hv-go-pb { transition-property: opacity; transition-duration: .15s; }
+    .sd-stride, .bf-was, .bf-now, .bf-buy, [data-bundle-now], [data-bundle-was], .bfd-now, .bfd-was { transition-property: opacity; transition-duration: .15s; }
     </style>
     <script>
     // The price hold (2026-10-22). Every price on this page is written in dollars, and Paddle's
@@ -1460,7 +1458,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .bfbar-k{font-weight:700}
   /* The clock is the bar's loudest thing (Yossi 2026-11-09: "the numbers in BOLD and a font that shows there is a
      countdown; right now it disappears"): the page's own face at its heaviest, a size up, with Outfit's tabular
-     figures so the seconds do not jitter. It was Space Mono 700, lighter than the words around it. */
+     figures so the seconds do not jitter. It was Space Mono 700, lighter than the words around it. Kept when the strip
+     went back to Stride + the Bundle bump (2026-11-10). */
   .bfbar-clock{font-family:'Outfit',sans-serif;font-size:18px;font-weight:900;letter-spacing:.04em;line-height:1;
     font-variant-numeric:tabular-nums}
   html.has-bfbar{scroll-padding-top:46px}
@@ -1612,6 +1611,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .addon-bundle .bump-on{display:none}
   .addon-bundle.on .bump-on{display:inline}
   .addon-bundle.on .bump-off{display:none}
+  /* The small Bundle row's button keeps its width when the Bundle goes in or out (Yossi 2026-11-07: "after clicking it,
+     its LAYOUT should not change"; the small row again since 2026-11-10): both labels share one cell, the one not
+     showing keeps its room, as the big card's did. */
+  .addon-compact.addon-bundle .addon-btn{display:inline-grid}
+  .addon-compact.addon-bundle .addon-btn > .bump-off,.addon-compact.addon-bundle .addon-btn > .bump-on{display:block;grid-area:1 / 1;text-align:center}
+  .addon-compact.addon-bundle .addon-btn > .bump-on{visibility:hidden}
+  .addon-compact.addon-bundle.on .addon-btn > .bump-on{visibility:visible}
+  .addon-compact.addon-bundle.on .addon-btn > .bump-off{visibility:hidden}
   .addon-pair{position:relative;flex:none;width:70px;height:44px}
   .addon-pair img{position:absolute;display:block;object-fit:cover;border:1px solid var(--line);background:var(--bg2)}
   .addon-pair .ap-t{left:0;top:3px;width:56px;height:32px;border-radius:7px}
@@ -2150,6 +2157,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .sc-own:hover{color:var(--ink)}
   [data-sc-owners][hidden]{display:none}
 
+  /* The hero's Stride Bundle is the small row again (2026-11-10): the big card stays for the scripts, unseen. */
+  section[data-ms="hero"] #addon-bundle{display:none!important}
   /* ── TENDRIL (2026-10-22) ─────────────────────────────────────────────────
      The section after "You already have everything you need": a second product, a synth
      built to be explored with Stride, sold to Stride owners only. No price and no buy
@@ -2346,236 +2355,54 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] .hero-text .hero-sub{margin-bottom:1.6rem;font-size:17.5px}
     section[data-ms="hero"] .hero-spec{margin-bottom:0}
 
-    /* The strip takes the row under the copy and the film; its own look is THE STRIP, below. */
-    section[data-ms="hero"] .hero-buy{grid-area:buy}
+    /* The buy bar. */
+    section[data-ms="hero"] .hero-buy{grid-area:buy;display:grid;position:relative;
+      grid-template-columns:auto minmax(0,1fr) 350px;grid-template-areas:"price addon cta";
+      align-items:center;padding:18px 34px;border:1px solid var(--line);border-radius:20px;
+      background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.16)),var(--panel);
+      box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 26px 54px -34px rgba(0,0,0,.95)}
+    section[data-ms="hero"] .hero-buy-price{grid-area:price;padding:0 30px 0 8px}
+    section[data-ms="hero"] .hero-price-line{margin:0 0 .7rem;gap:.9rem}
+    section[data-ms="hero"] .hero-buy .hero-price{font-size:54px}
+    section[data-ms="hero"] .hero-buy .fold-strike{font-size:38px}
+    section[data-ms="hero"] .hero-buy .seal2{font-size:13px;padding:7px 12px}
+    section[data-ms="hero"] .hero-included{margin:0;font-size:15px}
+    section[data-ms="hero"] .hero-buy-addon{grid-area:addon;align-self:stretch;display:flex;
+      align-items:center;justify-content:center;padding:0 24px;
+      border-left:1px solid var(--line);border-right:1px solid var(--line)}
+    /* No divider while no bump shows. Two rows sit here now (the order bump test shows one of
+       them), so "a hidden row" no longer means "nothing to show". */
+    section[data-ms="hero"] .hero-buy-addon:not(:has(> .addon:not([hidden]))){border-color:transparent}
+    section[data-ms="hero"] .hero-buy-addon .addon{margin:0;width:100%;max-width:560px;padding:12px 14px}
+    /* Tendril's second line ("A perfect sound design playground + 22 StrideChains") fits whole here. */
+    section[data-ms="hero"] .hero-buy-addon .addon-tdr{max-width:620px}
+    section[data-ms="hero"] .hero-buy-addon .addon-bundle{max-width:620px}
+    section[data-ms="hero"] .hero-buy-addon .addon.bcard{max-width:640px;padding:14px 18px 14px 14px}
+    section[data-ms="hero"] .hero-buy-addon:has(> .addon.bcard:not([hidden])){padding:0 8px}
+    /* 350px less the 30px gutter leaves the wallet 320px, more than the 306px it once overflowed. */
+    section[data-ms="hero"] .hero-cta{grid-area:cta;padding-left:30px}
+    section[data-ms="hero"] .hero-cta > *{max-width:none}
+    section[data-ms="hero"] .hero-cta > a.btn-copper{min-height:50px;font-size:17px;letter-spacing:.04em}
+    /* The trial button sits about a third shorter than GET STRIDE, as in the comp. */
+    section[data-ms="hero"] .hero-cta > a.btn-ghost{min-height:34px;height:34px;padding-top:0;padding-bottom:0;
+      font-size:11.5px;letter-spacing:.14em;border-radius:10px}
+
+    /* The wallet (Apple Pay / Google Pay) keeps its place between the two buttons. It is the
+       tallest thing in the bar when it renders: 80px of cropped frame (the button sits at
+       frame y 26..70) plus two lines of consent, so the bar stands taller on the devices that
+       get one. Paddle draws the button 10px in from each side of its frame, so the consent
+       line is padded to match it. */
+    section[data-ms="hero"] .hero-cta{gap:.5rem}
+    section[data-ms="hero"] .express-slot .paddle-express-terms{padding:0 10px}
   }
-
-  /* ══════════════════════════════════════════════════════════════════════════
-     THE STRIP: CHOOSE YOUR VERSION (Yossi 2026-11-09, his desktop and phone mockups).
-     A tray a little wider than the hero's column: it reaches into the page's gutter (the section reaches with it and
-     pads itself back, so the headline, the paragraph and the film keep their exact places), and its own padding puts
-     the cards back on the column's edges. In it: the label, Stride and the Stride Bundle as two cards with OR between
-     them, the buttons, and one line of what it runs in. The picked card wears the copper edge and a filled radio, the
-     other stays quiet. Three layouts by width:
-       below 700px   one column, his phone mockup;
-       700-1279px    the two cards side by side, the buttons in a row under them;
-       1280px up     the cards and the buttons' column side by side, his desktop mockup.
-     A card sets its picture beside its words while it has the room and over them where it has not (flex-wrap).
-     Labels stay plain text with no outlines (his 2026-10-22 rule): "Selected" is copper type and OR a dark disc;
-     the badge and the tickets are our own copper seal and Black Friday ticket.
-     Selectors lead with section[data-ms="hero"] .hero-buy: they must outrank the Stride Bundle card's older .addon.bcard
-     rules, which the bar's deals popup still uses as they are.
-     ══════════════════════════════════════════════════════════════════════════ */
-  section[data-ms="hero"]{--hv-bleed:14px;margin-left:calc(-1 * var(--hv-bleed));margin-right:calc(-1 * var(--hv-bleed));
-    padding-left:var(--hv-bleed);padding-right:var(--hv-bleed)}
-  section[data-ms="hero"] > .hero-lanes{left:var(--hv-bleed);width:calc(100% - 2 * var(--hv-bleed))}
-  @media (min-width:1024px){section[data-ms="hero"]{--hv-bleed:16px}}
-  @media (min-width:1448px){section[data-ms="hero"]{--hv-bleed:28px}}
-
-  section[data-ms="hero"] .hero-buy{position:relative;display:grid;grid-template-columns:minmax(0,1fr);
-    grid-template-areas:"head" "s" "or" "b" "spec" "cta";align-items:stretch;
-    margin:0 calc(-1 * var(--hv-bleed));padding:16px var(--hv-bleed) 18px;
-    border:1px solid var(--line);border-radius:22px;
-    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.16)),var(--panel);
-    box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 26px 54px -34px rgba(0,0,0,.95)}
-  section[data-ms="hero"] .hero-buy .hv-head{grid-area:head;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin:0 0 14px}
-  section[data-ms="hero"] .hero-buy .hv-k{margin:0;font-size:12px;font-weight:800;letter-spacing:.24em;line-height:1.2;
-    text-transform:uppercase;color:var(--ink2)}
-  section[data-ms="hero"] .hero-buy .hv-head .code-seal{margin:0}
-  /* No choice to make (the Bundle not offered): no label, no radios, no OR, no "Selected". */
-  section[data-ms="hero"] .hero-buy:not(.hv-two) .hv-k,
-  section[data-ms="hero"] .hero-buy:not(.hv-two) .hv-radio,
-  section[data-ms="hero"] .hero-buy:not(.hv-two) .hv-on,
-  section[data-ms="hero"] .hero-buy:not(.hv-two) .hv-or,
-  section[data-ms="hero"] .hero-buy:not(.hv-two) .hv-pick{display:none}
-  section[data-ms="hero"] .hero-buy:not(.hv-two) .hv-head:not(:has(.code-seal:not([hidden]))){display:none}
-
-  /* The two cards. */
-  section[data-ms="hero"] .hero-buy .hv-s{grid-area:s}
-  section[data-ms="hero"] .hero-buy .hero-buy-addon{grid-area:b;display:flex;flex-direction:column;justify-content:center;min-width:0}
-  section[data-ms="hero"] .hero-buy .hero-buy-addon > .hv-card{flex:1 1 auto}
-  section[data-ms="hero"] .hero-buy .hv-card,
-  section[data-ms="hero"] .hero-buy .hero-buy-addon .addon.bcard.hv-card{position:relative;display:flex;flex-wrap:wrap;
-    align-items:center;align-content:flex-start;gap:14px;margin:0;padding:14px 14px 16px;
-    border:2px solid rgba(216,201,176,.14);border-radius:16px;cursor:pointer;container-type:inline-size;
-    background:rgba(0,0,0,.24);box-shadow:none;-webkit-tap-highlight-color:transparent;
-    transition:border-color .2s,background .2s,box-shadow .2s}
-  /* Its own display outranks the [hidden] reset, so a hidden card would show unless it is said here. */
-  section[data-ms="hero"] .hero-buy .hero-buy-addon .addon.bcard.hv-card[hidden]{display:none}
-  section[data-ms="hero"] .hero-buy .hv-card:hover{border-color:rgba(221,154,82,.5)}
-  section[data-ms="hero"] .hero-buy .hv-card:focus-visible{outline:2px solid var(--copper-lt);outline-offset:3px}
-  /* The picked one (the Stride card on its own when nothing else is offered). */
-  section[data-ms="hero"] .hero-buy:not(.hv-b) .hv-s,
-  section[data-ms="hero"] .hero-buy.hv-b .hero-buy-addon .addon.bcard.hv-card{border-color:var(--copper-lt);
-    background:radial-gradient(120% 150% at 0% 100%,rgba(198,113,43,.20),transparent 62%),rgba(198,113,43,.06);
-    box-shadow:0 0 0 1px rgba(198,113,43,.10) inset,0 24px 48px -30px rgba(198,113,43,.6)}
-  section[data-ms="hero"] .hero-buy .hv-top{flex:1 0 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;
-    min-width:0;padding-right:30px}
-  section[data-ms="hero"] .hero-buy .hv-radio{position:relative;flex:none;width:22px;height:22px;border-radius:50%;
-    border:2px solid rgba(236,228,214,.62);transition:border-color .2s}
-  section[data-ms="hero"] .hero-buy .hv-radio::after{content:"";position:absolute;inset:3px;border-radius:50%;
-    background:linear-gradient(180deg,var(--ember),var(--copper));transform:scale(0);transition:transform .18s ease}
-  section[data-ms="hero"] .hero-buy:not(.hv-b) .hv-s .hv-radio,
-  section[data-ms="hero"] .hero-buy.hv-b .hv-card#addon-bundle .hv-radio{border-color:var(--copper-lt)}
-  section[data-ms="hero"] .hero-buy:not(.hv-b) .hv-s .hv-radio::after,
-  section[data-ms="hero"] .hero-buy.hv-b .hv-card#addon-bundle .hv-radio::after{transform:scale(1)}
-  section[data-ms="hero"] .hero-buy .hv-h,
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-h{margin:0;font-size:clamp(17px,6cqi,21px);font-weight:900;letter-spacing:-.01em;
-    line-height:1;color:var(--ink);text-transform:uppercase;white-space:nowrap}
-  section[data-ms="hero"] .hero-buy .hv-on{display:none;font-size:10px;font-weight:800;letter-spacing:.16em;line-height:1;
-    text-transform:uppercase;color:var(--copper-lt)}
-  section[data-ms="hero"] .hero-buy.hv-two:not(.hv-b) .hv-s .hv-on,
-  section[data-ms="hero"] .hero-buy.hv-two.hv-b .hv-card#addon-bundle .hv-on{display:inline}
-  /* BEST VALUE on the Bundle's top edge, our copper seal (Yossi 2026-11-09). */
-  section[data-ms="hero"] .hero-buy .hv-best{position:absolute;left:14px;top:-11px;z-index:2;padding:6px 10px 5px;
-    font-size:10px;font-weight:900;letter-spacing:.16em;line-height:1;text-transform:uppercase;white-space:nowrap;color:#1c1206;
-    background:linear-gradient(180deg,var(--ember),var(--copper));border:1px solid rgba(255,210,150,.28);border-radius:6px;
-    box-shadow:0 1px 0 rgba(255,255,255,.26) inset,0 8px 16px -11px rgba(198,113,43,.9)}
-  /* The pictures: Stride's real UI; the Bundle's real windows, Tendril's over Stride's with the Collection's discs
-     in front (his mockup's arrangement). Both the same shape, so the two cards read as a pair. */
-  section[data-ms="hero"] .hero-buy .hv-art,
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-art{flex:1.08 1 0;min-width:122px;align-self:center}
-  section[data-ms="hero"] .hero-buy .hv-art{display:block;width:100%;height:auto;aspect-ratio:16/10;object-fit:cover;
-    object-position:50% 35%;border-radius:7px;border:1px solid rgba(221,154,82,.32);box-shadow:0 12px 24px -10px rgba(0,0,0,.95)}
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-art{position:relative;width:auto;aspect-ratio:16/10}
-  section[data-ms="hero"] .hero-buy .hv-card .bc-tdr{left:0;top:0;width:66%;height:72%;z-index:1;border-radius:6px;object-position:50% 0}
-  section[data-ms="hero"] .hero-buy .hv-card .bc-stride{left:auto;right:0;top:auto;bottom:0;width:70%;height:60%;z-index:2;object-position:50% 45%}
-  section[data-ms="hero"] .hero-buy .hv-card .bc-discs{left:-3%;top:auto;bottom:-7%;width:70%;height:auto;aspect-ratio:100/25.4;z-index:3}
-  /* The words: what it is, the facts (the Bundle), then the price over the struck one. */
-  section[data-ms="hero"] .hero-buy .hv-body,
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-body{flex:1 1 0;min-width:128px;display:flex;flex-direction:column;align-items:flex-start}
-  section[data-ms="hero"] .hero-buy .hv-what,
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-sub{margin:0;font-size:clamp(13px,4.3cqi,17px);font-weight:800;letter-spacing:0;
-    line-height:1.22;color:var(--ink);text-transform:none}
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-sub .bcp{color:inherit}
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-facts{margin:6px 0 0;font-size:clamp(11.5px,3.5cqi,13.5px);font-weight:500;
-    line-height:1.42;color:var(--ink2)}
-  section[data-ms="hero"] .hero-buy .hv-s .sd-price-box.hero-price-line,
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-row{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:10px 0 0}
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-total{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:0}
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-total > span,
-  section[data-ms="hero"] .hero-buy .hv-card .addon-btn.bcard-btn{display:none}
-  section[data-ms="hero"] .hero-buy .hv-s .hero-price,
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-total b{font-size:clamp(25px,9.4cqi,40px);font-weight:900;line-height:1;
-    letter-spacing:-.015em;color:var(--ink);white-space:nowrap}
-  section[data-ms="hero"] .hero-buy .hv-s .fold-strike,
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-total s{font-size:clamp(16px,5.8cqi,25px);font-weight:800;line-height:1.05;
-    color:var(--ink3);opacity:.85;text-decoration:line-through;text-decoration-thickness:2px;white-space:nowrap}
-  /* A code that is not Black Friday's says what it saves, beside the struck price under the price, so the card keeps
-     its height (the price takes its own line, the struck price and the seal share the next). */
-  section[data-ms="hero"] .hero-buy .hv-s .sd-price-box.hero-price-line{flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:10px}
-  section[data-ms="hero"] .hero-buy .hv-s .sd-price-box.hero-price-line > .hero-price{flex:0 0 100%}
-  section[data-ms="hero"] .hero-buy .hv-s .seal2.sd-save:not(.bf-ticket){margin:0;font-size:10px;padding:4px 8px}
-  /* The two Black Friday tickets, each hung on its card's top right corner. */
-  section[data-ms="hero"] .hero-buy .hv-s .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket,
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-ticket{position:absolute;top:-33px;right:-6px;left:auto;z-index:2;width:72px;
-    height:auto;max-width:none;flex:none;aspect-ratio:auto;margin:0;transform:none;pointer-events:none}
-  section[data-ms="hero"] .hero-buy .hv-s .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket svg,
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-ticket svg{position:static;display:block;width:100%;height:auto;
-    transform:rotate(-7deg)}
-  section[data-ms="hero"] .hero-buy .hv-card .bcard-ticket{filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)) drop-shadow(0 2px 2px rgba(0,0,0,.35))}
-
-  /* OR: a dark disc on a hairline across the tray; between the cards, the disc alone. */
-  section[data-ms="hero"] .hero-buy .hv-or{grid-area:or;display:flex;align-items:center;gap:12px;margin:12px 0}
-  section[data-ms="hero"] .hero-buy .hv-or::before,
-  section[data-ms="hero"] .hero-buy .hv-or::after{content:"";flex:1;height:1px;background:var(--line)}
-  section[data-ms="hero"] .hero-buy .hv-or > span{flex:none;display:flex;align-items:center;justify-content:center;width:36px;height:36px;
-    border-radius:50%;background:var(--bg);box-shadow:0 1px 0 rgba(255,255,255,.04),inset 0 2px 6px rgba(0,0,0,.55);
-    font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--copper-lt)}
-
-  /* What it runs in, one line under both. */
-  section[data-ms="hero"] .hero-buy .hv-spec{grid-area:spec;margin:16px 0 0;padding:0 0 15px;border-bottom:1px solid var(--line);
-    font-size:13px;line-height:1.55;font-weight:500;color:var(--ink2);text-align:center;text-wrap:balance}
-  section[data-ms="hero"] .hero-buy .hv-spec-t > span:not(.hv-dot){display:block}
-  section[data-ms="hero"] .hero-buy .hv-dot{display:none;padding:0 .22em}
-  /* Each name whole, a little air round each dot (the items are made by the script under the tray). */
-  section[data-ms="hero"] .hero-buy .hvs{white-space:nowrap}
-  section[data-ms="hero"] .hero-buy .hvd{font-style:normal;padding:0 .22em}
-
-  /* The buttons: what is picked, the button that buys it, the wallet with its line, the free week. */
-  section[data-ms="hero"] .hero-buy .hero-cta{grid-area:cta;display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:14px 0 0}
-  section[data-ms="hero"] .hero-buy .hero-cta > *{flex:none;max-width:none;width:100%}
-  section[data-ms="hero"] .hero-buy .hv-pick{margin:0 0 2px;font-size:15.5px;font-weight:600;line-height:1.3;color:var(--ink)}
-  section[data-ms="hero"] .hero-buy .hv-pick b{font-weight:800}
-  section[data-ms="hero"] .hero-buy.hv-b .hv-pick-s,
-  section[data-ms="hero"] .hero-buy:not(.hv-b) .hv-pick-b,
-  section[data-ms="hero"] .hero-buy.hv-b .hv-go-s,
-  section[data-ms="hero"] .hero-buy:not(.hv-b) .hv-go-b{display:none}
-  section[data-ms="hero"] .hero-buy .hero-cta > a.hv-go{min-height:50px;padding:0 14px;font-size:16px;letter-spacing:.03em;
-    white-space:nowrap;border-radius:12px}
-  /* Where the price does not fit beside the words (a long currency, a longer language), it steps out: it is on the card. */
-  section[data-ms="hero"] .hero-buy .hv-go.hv-go-tight .sd-cta-price,
-  section[data-ms="hero"] .hero-buy .hv-go.hv-go-tight .hv-go-pb{display:none}
-  section[data-ms="hero"] .hero-buy .hv-go.hv-go-wrap{white-space:normal;text-align:center;line-height:1.2;padding-top:8px;padding-bottom:8px}
-  section[data-ms="hero"] .hero-buy .hero-cta > a.btn-ghost{min-height:42px;font-size:12px;letter-spacing:.14em;border-radius:12px}
-  section[data-ms="hero"] .hero-buy .express-slot .paddle-express-terms{padding:0 6px;text-align:center}
-
-  /* 700px up: the cards side by side, OR between them, the buttons in one row under them. */
-  @media (min-width:700px){
-    section[data-ms="hero"] .hero-buy{grid-template-columns:minmax(0,46fr) 48px minmax(0,54fr);
-      grid-template-areas:"head head head" "s or b" "spec spec spec" "cta cta cta";padding-top:18px}
-    section[data-ms="hero"] .hero-buy .hv-or{margin:0;justify-content:center}
-    section[data-ms="hero"] .hero-buy .hv-or::before,
-    section[data-ms="hero"] .hero-buy .hv-or::after{display:none}
-    section[data-ms="hero"] .hero-buy .hv-or > span{width:40px;height:40px}
-    section[data-ms="hero"] .hero-buy .hv-spec-t > span:not(.hv-dot),
-    section[data-ms="hero"] .hero-buy .hv-dot{display:inline}
-    section[data-ms="hero"] .hero-buy .hero-cta{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,.9fr);
-      grid-template-areas:"pick pick pick" "go pay try";column-gap:12px;row-gap:10px;align-items:start}
-    section[data-ms="hero"] .hero-buy .hv-pick{grid-area:pick}
-    section[data-ms="hero"] .hero-buy .hero-cta > a.hv-go{grid-area:go}
-    section[data-ms="hero"] .hero-buy .hero-cta > .express-slot{grid-area:pay}
-    section[data-ms="hero"] .hero-buy .hero-cta > a.btn-ghost{grid-area:try;min-height:50px}
-  }
-  /* 1280px up, his desktop mockup: the buttons' column to the right of the cards, behind a hairline; the line of
-     what it runs in under everything, between two rules. */
-  @media (min-width:1280px){
-    section[data-ms="hero"] .hero-buy{grid-template-columns:minmax(0,46fr) 48px minmax(0,54fr) 368px;
-      grid-template-areas:"head head head ." "s or b cta" "spec spec spec spec";padding-top:16px;padding-bottom:14px}
-    section[data-ms="hero"] .hero-buy .hv-head{margin-bottom:12px}
-    section[data-ms="hero"] .hero-buy .hv-k{font-size:12.5px}
-    section[data-ms="hero"] .hero-buy .hv-card,
-    section[data-ms="hero"] .hero-buy .hero-buy-addon .addon.bcard.hv-card{padding:14px 18px 16px;gap:12px 16px}
-    section[data-ms="hero"] .hero-buy .hv-h,
-    section[data-ms="hero"] .hero-buy .hv-card .bcard-h{font-size:24px}
-    section[data-ms="hero"] .hero-buy .hv-top{padding-right:74px}
-    /* The Bundle's words take a little more of its card, so "Stride + Tendril + Collection" holds one line; Stride's
-       picture runs a little taller, so the two cards are as full as each other. */
-    section[data-ms="hero"] .hero-buy .hv-card .bcard-art{flex:1 1 0}
-    section[data-ms="hero"] .hero-buy .hv-card .bcard-body{flex:1.22 1 0}
-    section[data-ms="hero"] .hero-buy .hv-art{flex:1.1 1 0;aspect-ratio:16/10.6}
-    section[data-ms="hero"] .hero-buy .hv-what,
-    section[data-ms="hero"] .hero-buy .hv-card .bcard-sub{font-size:16px}
-    section[data-ms="hero"] .hero-buy .hv-card .bcard-facts{margin-top:4px}
-    section[data-ms="hero"] .hero-buy .hv-s .sd-price-box.hero-price-line,
-    section[data-ms="hero"] .hero-buy .hv-card .bcard-row{margin-top:8px}
-    section[data-ms="hero"] .hero-buy .hv-s .sd-price-box.hero-price-line .seal2.sd-save.bf-ticket,
-    section[data-ms="hero"] .hero-buy .hv-card .bcard-ticket{width:90px;top:-30px;right:-12px}
-    section[data-ms="hero"] .hero-buy .hv-s .hero-price,
-    section[data-ms="hero"] .hero-buy .hv-card .bcard-total b{font-size:36px}
-    section[data-ms="hero"] .hero-buy .hv-s .fold-strike,
-    section[data-ms="hero"] .hero-buy .hv-card .bcard-total s{font-size:22px}
-    section[data-ms="hero"] .hero-buy .hero-cta{display:flex;flex-direction:column;justify-content:center;gap:8px;
-      margin:0 0 0 24px;padding:0 0 0 24px;border-left:1px solid var(--line)}
-    section[data-ms="hero"] .hero-buy .hero-cta > a.btn-ghost{min-height:38px}
-    section[data-ms="hero"] .hero-buy .hv-spec{display:flex;align-items:center;gap:18px;margin:14px 0 0;padding:0;border:0;font-size:13.5px}
-    section[data-ms="hero"] .hero-buy .hv-spec::before,
-    section[data-ms="hero"] .hero-buy .hv-spec::after{content:"";flex:1 1 0;min-width:24px;height:1px;background:var(--line)}
-    section[data-ms="hero"] .hero-buy .hv-spec-t{flex:0 1 auto}
-  }
-  /* 700-1279px: a rule over the buttons' row, the line of what it runs in plain above it. */
-  @media (min-width:700px) and (max-width:1279.98px){
-    section[data-ms="hero"] .hero-buy .hv-spec{border-bottom:0;padding-bottom:0}
-    section[data-ms="hero"] .hero-buy .hero-cta{margin-top:14px;padding-top:16px;border-top:1px solid var(--line)}
-  }
-  /* A tablet: the buy button across the row, the wallet and the free week side by side under it. */
-  @media (min-width:700px) and (max-width:1023.98px){
-    section[data-ms="hero"] .hero-buy .hero-cta{grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-      grid-template-areas:"pick pick" "go go" "pay try"}
-  }
-  /* 1280-1447px: the cards are a little narrower, so Stride's picture gives its words the room for one line. */
-  @media (min-width:1280px) and (max-width:1447.98px){
-    section[data-ms="hero"] .hero-buy .hv-art{flex:.9 1 0}
+  /* 1024 to 1279px has no room for three bar segments in a row: the add-on takes its own
+     row under the price and the buttons. */
+  @media (min-width:1024px) and (max-width:1279.98px){
+    section[data-ms="hero"] .hero-buy{grid-template-columns:minmax(0,1fr) 350px;
+      grid-template-areas:"price cta" "addon addon";row-gap:20px}
+    section[data-ms="hero"] .hero-buy-addon{border-left:0;border-right:0;
+      border-top:1px solid var(--line);padding:20px 0 0}
+    section[data-ms="hero"] .hero-buy-addon .addon{max-width:none}
   }
 
   @media (max-width:899.98px){
@@ -2646,10 +2473,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        wrappers dissolve (display:contents) so the video can sit between the headline and the
        paragraph, and every piece takes an `order`. The DOM, every word and the desktop
        composition stay as they are, and a screen reader still reads the text, then the video.
-       Since 2026-11-09 the strip is one box again (the tray, THE STRIP above) and comes after
-       the paragraph as a whole; the headline, the video and the paragraph keep their order.
-       The consent panel's KEEP_CLEAR keeps clear of the whole tray on a phone too. */
-    section[data-ms="hero"] .hero-copy, section[data-ms="hero"] .hero-text{display:contents}
+       With its wrapper dissolved .hero-buy has no box here, so the consent panel's KEEP_CLEAR
+       skips it; it still keeps clear of the headline, the video and GET STRIDE. */
+    section[data-ms="hero"] .hero-copy, section[data-ms="hero"] .hero-text,
+    section[data-ms="hero"] .hero-buy, section[data-ms="hero"] .hero-buy-price{display:contents}
     /* The section has to be named here: the utility that sets this gap (gap-10, 40px) lives in
        the Tailwind sheet, which is linked after this block, so a bare .hero-cols rule loses on
        order. The pieces' own margins space them now. */
@@ -2657,7 +2484,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="hero"] h1{order:1}
     section[data-ms="hero"] .hero-visual{order:2;margin:.4rem 0 .9rem}
     section[data-ms="hero"] .hero-sub{order:3}
-    section[data-ms="hero"] .hero-buy{order:4;margin-top:.9rem}
+    section[data-ms="hero"] .code-seal{order:4}
+    section[data-ms="hero"] .hero-price-line{order:5}
+    /* Out of its block its top margin would add to the price's instead of folding into it, so
+       the price's 1rem alone sits above it, and the capability line follows tight. */
+    section[data-ms="hero"] .hero-included{order:6;margin:0 0 .3rem}
+    section[data-ms="hero"] .hero-spec{order:7}
+    section[data-ms="hero"] .hero-buy-addon{order:8}
+    section[data-ms="hero"] .hero-cta{order:9}
+    /* GET STRIDE keeps 13px off the Stride Bundle's card above it (Yossi 2026-11-08: "a small gap between the GET
+       button and the box on mobile"), the room the bump rows always had from .addon's own margin, which the card
+       drops because in the desktop bar it sits in the middle column. */
+    section[data-ms="hero"] .hero-buy-addon .addon.bcard{margin-bottom:13px}
     /* No hardware frame round the video on a phone (Yossi 2026-10-19: "no need for the whole TV
        frame, frame it a little, much more subtly"): the panel's padding, border, fill and screws
        go, so the picture runs the full width of the text (342px on a 390px phone, was 324px),
@@ -2837,7 +2675,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 
 </style>
-<link rel="stylesheet" href="/_legacy/css/index.0a567b4631.css">
+<link rel="stylesheet" href="/_legacy/css/index.7fad811634.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -3050,43 +2888,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- The capability line that sat here moved into the buy strip, under the price, shorter (Yossi 2026-11-07:
              "just delete VST3 + AU + Ableton Devices · Audio In for guitar, vocals, hardware & recordings from the hero"). -->
         </div>
-        <!-- THE STRIP AS A CHOICE OF VERSION (Yossi 2026-11-09, his mockups for desktop and phone: "CHOOSE YOUR
-             VERSION", Stride and the Stride Bundle as two cards with a radio each and OR between them, each with its
-             real UI pictures, its price over the struck one and its Black Friday ticket on the corner; then what is
-             selected, the buttons, and one line under it all of what it runs in. "By default what's selected is the
-             bundle in both"). Only the strip changed: the headline, the paragraph and the film above it are as they
-             were. The two cards are the order: picking one is the hero card's own toggle (strideToggleAddon), so the
-             wallet, the buy form and every price on the page follow, as they always did. Wherever the Bundle is not
-             offered (Paddle could not price it, or Black Friday is over), the Stride card stands alone and the row
-             of the order bump test sits where the Bundle was. -->
-        <div class="hero-buy hv" role="radiogroup" aria-labelledby="hv-k">
-        <div class="hv-head">
-          <p class="hv-k" id="hv-k">バージョンを選ぶ</p>
-          <!-- Only ever on screen when the URL carried a code we know. Hidden in the markup and unhidden by
-               strideReadCode, so a bare visit reserves no space for it. -->
-          <span class="code-seal" id="codeSeal" hidden></span>
+        <div class="hero-buy">
+        <div class="hero-buy-price">
+        <!-- The price rail. What used to be a bordered plate with a NEW PRICE tape is one
+             line above the buttons, so the copy column is exactly as tall as the video
+             beside it. The two CTA anchors below are untouched. -->
+        <!-- Only ever on screen when the URL carried a code we know. Hidden in the markup
+             and unhidden by strideReadCode, so a bare visit reserves no space for it and
+             the ordinary hero is unchanged to the pixel. Its own line above the price, not
+             in the price row: a long code (SCIONAUGH20 applied) widened that row, and the
+             bar's price column is sized to it, so the Collection beside it was squeezed. -->
+        <span class="code-seal" id="codeSeal" hidden></span>
+        <div class="sd-price-box hero-price-line flex items-center gap-3 flex-wrap mt-1 mb-4">
+          <div class="text-5xl lg:text-[44px] font-black ink leading-none tracking-tight hero-price sd-total">$99</div>
+          <div class="text-base fold-strike font-bold ink3 leading-none sd-was" style="text-decoration:line-through;opacity:.75;display:none"></div>
+          <span class="seal2 sd-save" style="display:none"></span>
         </div>
-        <!-- Stride on its own: Stride's real UI, what it is, and Stride's own price (data-stride-only: always Stride
-             alone, never the order's total), the 30% ticket on its corner while Black Friday's code is the page's. -->
-        <div class="hero-buy-price hv-card hv-s" role="radio" aria-checked="false" tabindex="0" aria-labelledby="hv-s-h">
-          <div class="hv-top"><span class="hv-radio" aria-hidden="true"></span><p class="hv-h" id="hv-s-h" data-no-translate>Stride</p><span class="hv-on">選択中</span></div>
-          <img class="hv-art" src="/media/bundle/stride-ui.webp" alt="" width="480" height="298" decoding="async">
-          <div class="hv-body">
-            <p class="hv-what" data-no-translate>Stride + StrideBridge</p>
-            <div class="sd-price-box hero-price-line" data-stride-only>
-              <div class="hero-price hv-now">$99</div>
-              <div class="fold-strike sd-was" style="text-decoration:line-through;display:none"></div>
-              <span class="seal2 sd-save" style="display:none"></span>
-            </div>
-          </div>
-          <!-- The strip's two lines from before, kept off screen: Black November's deals (the bar's popup) still
-               copy them for their Stride side, word for word. -->
-          <div class="hv-src" hidden>
-            <p class="hero-included" data-no-translate><span class="hi-nw"><b>Stride</b> (VST3 + AU)</span> &amp; <b>StrideBridge</b> <span class="hi-nw">(Ableton Devices)</span></p>
-            <p class="hero-daws"><span class="hero-daws-k">対応 DAW：</span> <span class="hero-daws-n" data-no-translate>Ableton Live &middot; FL Studio &middot; Logic Pro &middot; Cubase &middot; Bitwig &middot; Studio One &middot; Reaper</span></p>
-          </div>
+        <!-- Name the two things actually included, then the order bump above the buttons, as it always was. -->
+        <!-- Under the price, two lines (Yossi 2026-11-07, his words): what it is, and where it runs (the DAWs by name,
+             after buyers named compatibility as what almost stopped them; the same list the pricing card states: any
+             VST3 DAW, Logic as AU, not Pro Tools). Brand and format names stay as written in every language: only
+             "Works in" is translated. -->
+        <p class="hero-included" data-no-translate><span class="hi-nw"><b>Stride</b> (VST3 + AU)</span> &amp; <b>StrideBridge</b> <span class="hi-nw">(Ableton Devices)</span></p>
+        <p class="hero-daws"><span class="hero-daws-k">対応 DAW：</span> <span class="hero-daws-n" data-no-translate>Ableton Live &middot; FL Studio &middot; Logic Pro &middot; Cubase &middot; Bitwig &middot; Studio One &middot; Reaper</span></p>
         </div>
-        <span class="hv-or" aria-hidden="true"><span>または</span></span>
         <div class="hero-buy-addon">
         <div id="addon" class="addon" data-bump="collection" hidden>
           <!-- A purpose-built 168px PNG rather than the 900px sleeve JPG: this slot is 42 CSS px,
@@ -3157,14 +2982,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              corner, hanging off the card; redrawn to his reference the same day: the three products' real art,
              the whole card clickable, nothing on the strip moving when it goes in). The script prints the upgrade's price,
              the total and the struck total, and draws the ticket (strideTicketSvg('50%')). -->
-        <!-- Since 2026-11-09 it is the strip's second version (his mockup): a radio and "Selected" beside its name, the
-             real art, what is in it, and the bundle's price over all three struck. The whole card picks it; the
-             Upgrade button and the "Bundle total" words stay in the markup, off screen in the hero, because the bar's
-             deals popup and the pricing card read them. -->
-        <div id="addon-bundle" class="addon addon-bundle bcard hv-card" data-bump="bundle" role="radio" aria-checked="false" tabindex="0" aria-labelledby="hv-b-h" hidden>
-          <!-- Yossi 2026-11-09: "put another BEST VALUE badge on the bundle". Our copper seal, on the card's top edge. -->
-          <span class="hv-best">いちばんお得</span>
-          <div class="hv-top"><span class="hv-radio" aria-hidden="true"></span><p class="bcard-h" id="hv-b-h">Stride Bundle</p><span class="hv-on">選択中</span></div>
+        <!-- Since 2026-11-10 the hero shows the Stride Bundle as this small row, the pricing card's own (Yossi: "go back to
+             the version before the Bundle came into the strip, keep the Bundle's order bump small like here"); the card
+             below stays in the page for the scripts that read it, hidden in the hero by CSS. -->
+        <div class="addon addon-compact addon-bundle" data-bump="bundle" hidden>
+              <span class="addon-pair" aria-hidden="true"><img class="ap-t" src="/media/tendril/film/poster-thumb.webp" alt="" width="256" height="144" loading="lazy" decoding="async"><img class="ap-c" src="/assets/packs/pack-drums-thumb.png" alt="" width="168" height="168" loading="lazy" decoding="async"></span>
+              <div class="addon-body">
+                <div class="addon-t"><span class="bump-off">Stride Bundle にアップグレード </span><span class="bump-on">✓ Stride Bundle </span><span class="addon-p">+$39.20</span></div>
+                <div class="addon-s">Stride + Tendril + Stride Collection</div>
+                <div class="addon-s addon-bprice"><span>3つすべて半額：</span> <s data-bundle-was>$217</s> <b data-bundle-now>$108.50</b></div>
+              </div>
+              <button type="button" class="addon-btn" aria-pressed="false" aria-label="Stride Bundle にアップグレード"
+                      onclick="strideToggleAddon(event)"><span class="bump-off">アップグレード</span><span class="bump-on">削除</span></button>
+              <div class="addon-tip" role="note">
+                <p class="addon-tip-h">3 つのエンジン。進化し続けるサウンドデザインの遊び場。</p>
+                <p class="addon-tip-b">倍音を形作り、エフェクトを攻めて、3 つの独立したパターンを互いに絡み合わせましょう。Stride で探求すれば、同じパッチから新しいサウンド、mudpies、シーケンスが見つかります。</p>
+                <p class="addon-tip-h">モーションが組み込み済みのサウンドデザインシステム</p>
+                <p class="addon-tip-b">Serum 2、Vital、Diva、Tendril のための120の StrideChain。すべてのレーンをマッピング済み、レンジも設定済みで、それぞれに5つのステート。Serum 2 と Vital 用の111の Stride ウェーブテーブルも。さらに Experimental Collection：壊れたドラム、落ちる一滴の水、フィードバックへ押し込んだ信号から作った250以上のサウンドと、Stride FX にマッピング済みの15の Ableton Racks。</p>
+                <p class="addon-tip-b">各パックには対応するシンセが必要です。シンセは含まれません。</p>
+              </div>
+            </div>
+        <div id="addon-bundle" class="addon addon-bundle bcard" data-bump="bundle" hidden>
           <!-- The picture, to his reference: Tendril's real window, the Collection's synths as discs in /collection/'s
                colours (Serum 2, Vital, Diva, Tendril, then the Sounds & Racks' art), Stride's lanes in front. -->
           <div class="bcard-art" aria-hidden="true">
@@ -3179,8 +3017,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
           </div>
           <div class="addon-body bcard-body">
-            <p class="bcard-sub" data-no-translate>Stride + Tendril + Collection</p>
-            <p class="bcard-facts">120 StrideChains · 111 ウェーブテーブル · 250+ サンプル · 15 Ableton ラック</p>
+            <p class="bcard-h">Stride Bundle</p>
+            <p class="bcard-sub">+ Tendril + Collection</p>
+            <p class="bcard-facts">120 StrideChains · 111 ウェーブテーブル · 250+ サウンド · 15 ラック</p>
             <div class="bcard-row">
               <button type="button" class="addon-btn bcard-btn" aria-pressed="false" aria-label="Stride Bundle にアップグレード"
                       onclick="strideToggleAddon(event)"><span class="bump-off">アップグレード <span class="addon-p">+$39.20</span> &rarr;</span><span class="bump-on">削除</span></button>
@@ -3225,44 +3064,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           // own handler (and stays the keyboard's way in), so a press on it is left to it.
           document.addEventListener('click', function (e) {
             try {
-              var t = e.target;
-              if (!t || !t.closest) return;
-              // The hero's two versions are a choice, not a switch (2026-11-09): a press on a card picks it, and a
-              // press on the one already picked leaves it picked. The pricing card's row further down still toggles.
-              var card = t.closest('section[data-ms="hero"] .hv-card');
-              if (card) { if (typeof strideVersionPick === 'function') strideVersionPick(card, e); return; }
-              var row = t.closest('.addon-bundle');
-              if (!row || t.closest('.addon-btn, a')) return;
+              var row = e.target && e.target.closest && e.target.closest('.addon-bundle');
+              if (!row || e.target.closest('.addon-btn, a')) return;
               if (typeof strideToggleAddon === 'function') strideToggleAddon(e);
-            } catch (err) {}
-          });
-          // Each card is a radio by keyboard too: Tab reaches it, Space or Enter picks it, an arrow key moves to the other.
-          document.addEventListener('keydown', function (e) {
-            try {
-              var card = e.target && e.target.closest && e.target.closest('section[data-ms="hero"] .hv-card');
-              if (!card || typeof strideVersionPick !== 'function') return;
-              if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); strideVersionPick(card, e); return; }
-              if (/^Arrow(Left|Right|Up|Down)$/.test(e.key)) {
-                var all = Array.prototype.filter.call(document.querySelectorAll('section[data-ms="hero"] .hv-card'),
-                  function (c) { return !c.hidden; });
-                if (all.length < 2) return;
-                e.preventDefault();
-                var next = all[(all.indexOf(card) + 1) % all.length];
-                next.focus();
-                strideVersionPick(next, e);
-              }
             } catch (err) {}
           });
         </script>
         </div>
         <div class="flex flex-wrap items-center gap-2.5 hero-cta">
-          <!-- What the buttons below will buy, named (his mockup: "Selected: Stride Bundle"). Only while there is a
-               choice to name; the names are the products' own. -->
-          <p class="hv-pick"><span>選択中：</span> <b class="hv-pick-s" data-no-translate>Stride</b><b class="hv-pick-b" data-no-translate>Stride Bundle</b></p>
-          <!-- The button says what it buys and its price: "GET STRIDE · price" or "GET THE BUNDLE · price". The Stride
-               words are the ones every page's buttons always had (strideSyncAddon prices them); the Bundle's are
-               printed by strideVersionsSync. Only the one that applies shows. -->
-          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl hv-go"><span class="hv-go-s">STRIDE を購入<span class="sd-cta-price"> &middot; $99</span></span><span class="hv-go-b">バンドルを購入<span class="hv-go-pb"> &middot; $108.50</span></span> <span>&rarr;</span></a>
+          <a onclick="openBuy()" class="btn-copper text-[15px] py-3 px-6 rounded-xl">STRIDE を購入<span class="sd-cta-price"> &middot; $99</span>  <span>&rarr;</span></a>
           <!-- Apple Pay / Google Pay, one tap, no form, between the two buttons.
                This is the page's ONLY express checkout: Paddle allows a single
                checkout instance, and a second inline mount silently destroys the
@@ -3285,53 +3095,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">7日間 無料で試す</a>
         </div>
-        <!-- One line under both versions (his mockup): the formats, StrideBridge, and the DAWs by name (the pricing
-             card's verified list: any VST3 DAW, Logic as AU, not Pro Tools). Names stay as written in every language. -->
-        <p class="hv-spec"><span class="hv-spec-t"><span>VST3 + AU · StrideBridge 同梱</span><span class="hv-dot" aria-hidden="true"> · </span><span class="hv-daws" data-no-translate>Ableton Live &middot; FL Studio &middot; Logic Pro &middot; Cubase &middot; Bitwig &middot; Studio One &middot; Reaper</span></span></p>
-        <script>
-          // The first paint already shows the choice as it will be: while Black Friday runs, the Bundle is offered and
-          // picked. strideSyncAddon confirms it once the page is read, and takes it back where Paddle cannot price it.
-          (function () {
-            try {
-              if (!window.STRIDE_BF) return;
-              var tray = document.currentScript && document.currentScript.closest('.hero-buy');
-              var card = document.getElementById('addon-bundle');
-              if (!tray || !card) return;
-              card.hidden = false;
-              tray.classList.add('hv-two', 'hv-b');
-            } catch (e) {}
-          })();
-          // The line under both versions as whole items with a little air round each dot, in whatever language the page
-          // is in (as the Bundle card's facts line does): a name never breaks inside, a line breaks after a dot.
-          (function () {
-            try {
-              var line = document.querySelector('section[data-ms="hero"] .hv-spec-t');
-              if (!line || line.querySelector('.hvs')) return;
-              Array.prototype.forEach.call(line.children, function (g) {
-                if (g.classList.contains('hv-dot')) return;
-                var parts = g.textContent.trim().split(/\s*·\s*/);
-                if (parts.length < 2) return;
-                g.textContent = '';
-                parts.forEach(function (p, i) {
-                  if (i) {
-                    var d = document.createElement('i');
-                    d.className = 'hvd';
-                    d.setAttribute('aria-hidden', 'true');
-                    d.textContent = '·';
-                    // No break before a dot (a line never starts with one), a break after it.
-                    g.appendChild(document.createTextNode(String.fromCharCode(160)));
-                    g.appendChild(d);
-                    g.appendChild(document.createTextNode(' '));
-                  }
-                  var s = document.createElement('span');
-                  s.className = 'hvs';
-                  s.textContent = p;
-                  g.appendChild(s);
-                });
-              });
-            } catch (e) {}
-          })();
-        </script>
         </div>
 
       </div>
@@ -5099,8 +4862,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             }
             strideMarkBuyIntent();
             try { if (window.strideClarity) window.strideClarity('buy_form_open'); } catch (e) {}
+            // Paddle's checkout starts loading out of sight while they type (strideWarmStart).
+            try { if (typeof strideWarmStart === 'function') strideWarmStart(); } catch (e) {}
         } else {
             document.body.style.overflow = '';
+            try { if (typeof strideWarmEnd === 'function') strideWarmEnd(); } catch (e) {}
         }
     }
     // New-design CTAs call openBuy(); route it to the buy modal.
@@ -5249,8 +5015,7 @@ document.addEventListener('DOMContentLoaded', function () {
    pricing panel's price row. No new element and no layout change, only a click and the pointer.
    Both rows sit outside the buy form, so the toggle can only ever open it from here. */
 document.addEventListener('DOMContentLoaded', function () {
-  // Not the hero's Stride card (2026-11-09): a press there picks Stride, like the rest of the card.
-  var taps = document.querySelectorAll('.sd-price-box:not([data-stride-only]), #codeSeal');
+  var taps = document.querySelectorAll('.sd-price-box, #codeSeal');
   for (var i = 0; i < taps.length; i++) {
     taps[i].style.cursor = 'pointer';
     taps[i].addEventListener('click', function () { openBuy(); });
@@ -5989,8 +5754,10 @@ function openBuy() { toggleBuyModal(); }
         }[lang] || ['Get the Stride Bundle', 'Get Stride only', 'Close'];
     }
     // The bundle is there to offer: Paddle sells it to this visitor at a price it quoted (strideAddonAvailable).
+    // Since 2026-11-10 the bar no longer opens the two deals (Yossi: "take the bundle out of ... the bar's deal popup"; the
+    // Bundle stays as the strip's small bump): a press on the bar opens the buy form, as GET STRIDE does.
     function strideBfDealOffered() {
-        try { return strideBumpArm() === 'bundle' && strideAddonAvailable(); } catch (e) { return false; }
+        return false;
     }
     function strideBfDealBuild() {
         var box = document.getElementById('bfdeal');
@@ -6153,13 +5920,7 @@ function openBuy() { toggleBuyModal(); }
         else if (!modal) document.body.style.overflow = '';
     }
 
-    // The Stride Bundle is the version picked when the page opens (Yossi 2026-11-09: "by default what's selected is the
-    // bundle, in both", desktop and phone), wherever it is offered: the order starts as the bundle, so the hero, the
-    // wallet, the buy form and every price on the page say so. Nothing is reported for it (no add_bump): the visitor
-    // did not press anything. Where Paddle cannot price the bundle, strideAddonActive() is false and Stride is the order.
-    let strideAddonOn = STRIDE_BUMP_TEST === 'bundle';
-    // The cart the wallet was last given (strideBumpIn() then), so an order that changes without a press is restated.
-    let strideExpressCart = null;
+    let strideAddonOn = false;
 
     // Whatever actually charges for the Collection decides whether we offer it. This
     // read the Lemon Squeezy bundle URL, which is dead config under Paddle: pruning that
@@ -6316,7 +6077,6 @@ function openBuy() { toggleBuyModal(); }
     function strideSyncExpressItems() {
         if (!strideExpressLive) return;
         if (typeof Paddle === 'undefined' || !Paddle.Checkout) return;
-        strideExpressCart = strideBumpIn();
         // With an ad code the discount is restated on every re-price. updateItems alone
         // only carries the cart, so if Paddle ever rebuilt the checkout around the new
         // items the code would fall off exactly when someone adds the Collection, and the
@@ -6555,31 +6315,18 @@ function openBuy() { toggleBuyModal(); }
         const ticket = showSave && ((!on && ((!!strideBfDid && strideCodeId === strideBfDid)
             || (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]))) || bundleIn);
         const ticketPct = bundleIn ? '50%' : '30%';
-        // The hero's Stride card (data-stride-only, 2026-11-09) states Stride ALONE whatever the order holds: Stride's
-        // price, its ordinary price struck, and the 30% ticket while Black Friday's code is the page's.
-        const strideNow = strideStridePrice();
-        const strideFull = strideList ? strideList.stride : STRIDE_PRICE;
-        const strideBfCode = (!!strideBfDid && strideCodeId === strideBfDid)
-            || (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]);
         document.querySelectorAll('.sd-price-box').forEach(function (box) {
             const was = box.querySelector('.sd-was');
             const seal = box.querySelector('.sd-save');
-            const alone = box.hasAttribute('data-stride-only');
-            const bFull = alone ? strideFull : full;
-            const bSaved = alone ? strideFull - strideNow : saved;
-            const bShow = alone ? (!!strideCodeId && bSaved >= 0.5) : showSave;
-            const bTicket = alone ? (bShow && strideBfCode) : ticket;
-            const bPct = alone ? '30%' : ticketPct;
-            if (alone) box.querySelectorAll('.hv-now').forEach(function (el) { el.textContent = strideMoneyExact(strideNow); });
-            if (was) { was.textContent = bShow ? strideMoneyExact(bFull) : ''; was.style.display = bShow ? '' : 'none'; }
+            if (was) { was.textContent = showSave ? strideMoneyExact(full) : ''; was.style.display = showSave ? '' : 'none'; }
             if (seal) {
-                if (bTicket && box.classList.contains('hero-price-line')) {
-                    if (!seal.classList.contains('bf-ticket') || seal.getAttribute('data-pct') !== bPct) {
+                if (ticket && box.classList.contains('hero-price-line')) {
+                    if (!seal.classList.contains('bf-ticket') || seal.getAttribute('data-pct') !== ticketPct) {
                         seal.classList.add('bf-ticket');
-                        seal.innerHTML = strideTicketSvg(bPct);
-                        seal.setAttribute('data-pct', bPct);
+                        seal.innerHTML = strideTicketSvg(ticketPct);
+                        seal.setAttribute('data-pct', ticketPct);
                         seal.setAttribute('role', 'img');
-                        seal.setAttribute('aria-label', 'Black Friday sale, ' + bPct + ' off');
+                        seal.setAttribute('aria-label', 'Black Friday sale, ' + ticketPct + ' off');
                     }
                 } else {
                     if (seal.classList.contains('bf-ticket')) {
@@ -6588,9 +6335,9 @@ function openBuy() { toggleBuyModal(); }
                         seal.removeAttribute('role');
                         seal.removeAttribute('aria-label');
                     }
-                    seal.textContent = bShow ? strideSaveWords(strideMoneyExact(bSaved)) : '';
+                    seal.textContent = showSave ? strideSaveWords(strideMoneyExact(saved)) : '';
                 }
-                seal.style.display = bShow ? '' : 'none';
+                seal.style.display = showSave ? '' : 'none';
             }
         });
         // The buy form says the same: the struck price and a plain note while a code is on the page.
@@ -6673,76 +6420,28 @@ function openBuy() { toggleBuyModal(); }
         strideHoldBundleRoom();
         // Black November's two deals, once built, follow the prices too.
         try { strideBfDealFill(); } catch (e) {}
-        // The hero's two versions: which is picked, and the button's words and price.
-        try { strideVersionsSync(); } catch (e) {}
-        // The wallet holds the cart it was given. An order that changed without a press (the Bundle, picked when the page
-        // opened, turned out not to be priced for this visitor) is restated to it. (The wallet's own flag is declared
-        // further down the script, hence the try.)
-        try {
-            if (strideExpressLive && strideExpressCart !== null && strideExpressCart !== strideBumpIn()) strideSyncExpressItems();
-        } catch (e) {}
     }
-
-    // ── The hero's two versions (Yossi 2026-11-09) ─────────────────────────────────────────────────────────────────
-    // The picked card follows the order: the Stride Bundle while it is in the cart, Stride otherwise. The tray says so
-    // with two classes (.hv-two: there is a choice to make; .hv-b: the Bundle is picked), the cards with aria-checked
-    // (only the picked one in the Tab order, the arrow keys move between them), and the button with its words and price.
-    function strideVersionsSync() {
-        var tray = document.querySelector('section[data-ms="hero"] .hero-buy');
-        if (!tray) return;
-        var two = strideBumpArm() === 'bundle' && strideAddonAvailable();
-        var bundle = two && strideBumpIn() === 'bundle';
-        tray.classList.toggle('hv-two', two);
-        tray.classList.toggle('hv-b', bundle);
-        var s = tray.querySelector('.hv-s'), b = document.getElementById('addon-bundle');
-        if (s) { s.setAttribute('aria-checked', bundle ? 'false' : 'true'); s.tabIndex = two && !bundle ? 0 : -1; }
-        if (b) { b.setAttribute('aria-checked', bundle ? 'true' : 'false'); b.tabIndex = bundle ? 0 : -1; }
-        // The Bundle's price on its button (the Stride words are priced with every other button on the page, above).
-        var all = strideBundle || strideBundleDollars();
-        tray.querySelectorAll('.hv-go-pb').forEach(function (el) { el.textContent = ' · ' + strideMoneyExact(all.charged); });
-        strideVersionsFit();
-    }
-    // A press (or Space, Enter, an arrow key) on a card picks it; the one already picked stays picked. The pick is the
-    // order's own toggle, so the wallet, GA4's add_bump and every price on the page follow it. A press on the price of
-    // the card already picked (or of the Stride card standing alone) opens the buy form, as a press on the hero's price
-    // always did (2026-10-05: visitors tapped the price about as often as GET STRIDE).
-    function strideVersionPick(card, ev) {
-        var tray = card && card.closest('.hero-buy');
-        if (!tray) return;
-        var want = card.id === 'addon-bundle';
-        if (tray.classList.contains('hv-two') && want !== (strideBumpIn() === 'bundle')) { strideToggleAddon(ev); return; }
-        var t = ev && ev.type === 'click' && ev.target;
-        if (t && t.closest && t.closest('.hero-price-line, .bcard-total')) openBuy();
-    }
-    // The button keeps one line: where its price does not fit beside its words (a long currency, a longer language),
-    // the price steps out (it is on the card above it), and only a label too long even then may take two lines.
-    function strideVersionsFit() {
-        var go = document.querySelector('section[data-ms="hero"] .hv-go');
-        if (!go) return;
-        go.classList.remove('hv-go-tight', 'hv-go-wrap');
-        if (!go.offsetWidth) return;
-        if (go.scrollWidth > go.clientWidth + 1) go.classList.add('hv-go-tight');
-        if (go.scrollWidth > go.clientWidth + 1) go.classList.add('hv-go-wrap');
-    }
-    let strideFitTimer = 0;
-    window.addEventListener('resize', function () {
-        clearTimeout(strideFitTimer);
-        strideFitTimer = setTimeout(strideVersionsFit, 120);
-    });
-    try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(strideVersionsFit); } catch (e) {}
 
     // The strip keeps its shape when the Stride Bundle goes in or out (Yossi 2026-11-07: "after clicking it, its
     // LAYOUT should not change; now it changes the whole shape of the strip"). The hero's price column is sized by
     // its content, and the bundle's price is wider than Stride's, so both states are drawn once, in the same task
     // (nothing is painted in between), and the column keeps the wider of the two widths in both. Again on resize,
     // and whenever the prices change (strideSyncAddon calls this).
-    // Since 2026-11-09 (the strip's two versions) the hero's price column is the Stride card, which states Stride alone in
-    // both states, and the Bundle's card has its own room, so there is nothing left to hold: this only clears a width an
-    // older page could have set.
     let strideHoldingRoom = false;
     function strideHoldBundleRoom() {
+        if (strideHoldingRoom) return;
         const col = document.querySelector('section[data-ms="hero"] .hero-buy-price');
-        if (col) col.style.minWidth = '';
+        if (!col) return;
+        col.style.minWidth = '';
+        if (strideBumpArm() !== 'bundle' || !strideAddonAvailable()) return;
+        strideHoldingRoom = true;
+        try {
+            const w1 = col.getBoundingClientRect().width;
+            strideAddonOn = !strideAddonOn; strideSyncAddon();
+            const w2 = col.getBoundingClientRect().width;
+            strideAddonOn = !strideAddonOn; strideSyncAddon();
+            if (w1 && w2) col.style.minWidth = Math.ceil(Math.max(w1, w2)) + 'px';
+        } catch (e) {} finally { strideHoldingRoom = false; }
     }
     let strideRoomTimer = 0;
     window.addEventListener('resize', function () {
@@ -6903,6 +6602,63 @@ function openBuy() { toggleBuyModal(); }
             || /[?&]_ptxn=/.test(window.location.search);   // a Paddle link Paddle opens itself
     }
 
+    // The buy form warms Paddle's checkout (Yossi 2026-11-10, in Hebrew, translated: "Paddle took
+    // about 9 seconds to open. Worth checking why it takes so long and if it can be shortened";
+    // then "Yes, build it"). Before Paddle's window can show anything it downloads about 600 KB of
+    // its own code (cached 4 hours), runs it, and asks Paddle's server for the price; its payment
+    // form then waits for Stripe's wallet check and Google Pay (about 1.6 MB more). Measured with
+    // real Paddle as a mid-range Android phone on 4G: checkout loaded at 6.7 s and the Pay button
+    // at 16.3 s with nothing cached; 1.9 s and 5.9 s after 13 s in the buy form with this warm-up
+    // (a desktop: 1.4 s to loaded either way). So the moment the buy form opens, the same cart
+    // opens in an inline checkout nobody sees, and by the time the buyer has typed their address
+    // and pressed Continue its code is cached and its connections are open.
+    // Paddle.js has no preload of its own. A bare Paddle frame with no cart caches the code too, but
+    // it sends Paddle's checkout server an empty request and hands the error to our eventCallback.
+    // Once per page view, and only where no Paddle frame has loaded yet: the wallet loads the same
+    // code (iPhone, iPad, Safari on a Mac, Android's in-app browsers), so it skips those. It never
+    // takes Paddle's one checkout from a checkout someone has (strideCheckoutTaken). It is one more
+    // Paddle draft, as the wallet makes on every visit: health.py skips drafts and the webhook
+    // ignores transaction.created. None of its events count (strideExpressEvent drops them while
+    // strideWarmLive is set), and every real open clears the flag before taking the checkout over.
+    let strideWarmLive = false;
+    let strideWarmDone = false;
+    function strideWarmStart() {
+        if (strideWarmDone || strideExpressLive || strideCheckoutTaken()) return;
+        if (!stridePaddleReady()) return;
+        strideWarmDone = true;
+        try {
+            var box = document.createElement('div');
+            box.className = 'stride-paddle-warm';
+            box.setAttribute('aria-hidden', 'true');
+            box.inert = true;
+            box.style.cssText = 'position:fixed;left:-10000px;top:0;width:360px;height:450px;'
+                + 'overflow:hidden;opacity:0;pointer-events:none;';
+            document.body.appendChild(box);
+            strideWarmLive = true;
+            Paddle.Checkout.open({
+                items: strideCheckoutItems(),
+                discountId: strideCartDiscount() || undefined,
+                settings: {
+                    displayMode: 'inline',
+                    frameTarget: 'stride-paddle-warm',
+                    frameInitialHeight: 450,
+                    frameStyle: 'width:100%;min-width:312px;background-color:transparent;border:none;',
+                    variant: 'one-page',
+                    // Every payment method, as the real checkout has: Paddle draws its payment form
+                    // only once Stripe's wallet check (about 1 MB of Stripe) and Google Pay are
+                    // loaded, so those are worth caching too. Card alone loaded Stripe anyway.
+                    theme: 'dark'
+                }
+            });
+        } catch (e) { strideWarmLive = false; }
+    }
+    // The buy form closed with no purchase: the hidden checkout goes with it. Its code stays cached.
+    function strideWarmEnd() {
+        if (!strideWarmLive) return;
+        try { Paddle.Checkout.close(); } catch (e) {}
+        strideWarmLive = false;
+    }
+
     // No wallet on this device. LATCHED, because the two events do not arrive in a
     // fixed order: WebKit fires checkout.payment.error BEFORE checkout.loaded, and
     // Chromium fires them the other way round. Proven from final DOM state on the
@@ -6939,6 +6695,8 @@ function openBuy() { toggleBuyModal(); }
     //                          state that printed "There are no payment methods
     //                          available for this checkout" inside the frame.
     function strideExpressEvent(ev) {
+        // The buy form's hidden warm-up (strideWarmStart) is not a checkout anyone sees.
+        if (strideWarmLive) return;
         // Every checkout step in Clarity: the wallet's while it is the live checkout, the
         // buy form's overlay (and a gift or Paddle-link checkout) otherwise.
         try { if (window.strideClarity) window.strideClarity.paddle(ev, strideExpressLive ? 'wallet' : 'checkout'); } catch (e) {}
@@ -7054,8 +6812,8 @@ function openBuy() { toggleBuyModal(); }
         // Google Pay's platforms are Android, Chromebook and Chrome, none of which
         // expose ApplePaySession. Paddle decides; its events tell us what happened.
         try {
+            strideWarmLive = false;      // the wallet takes Paddle's one checkout over and loads the same code
             strideExpressLive = true;
-            strideExpressCart = strideBumpIn();
             Paddle.Checkout.open({
                 items: strideCheckoutItems(),
                 // The ad code rides into the wallet too, so a one-tap Apple Pay buyer pays
@@ -7200,8 +6958,10 @@ function openBuy() { toggleBuyModal(); }
                 // allows only one at a time. Without this close, every buyer who
                 // scrolled past the pricing card gets a button that does nothing.
                 // Clearing the flag first stops the overlay's own loaded/error events
-                // from being read as the express button's.
+                // from being read as the express button's. The buy form's hidden
+                // warm-up is an inline checkout too, closed by the same call.
                 strideExpressLive = false;
+                strideWarmLive = false;
                 strideOverlayOpened = true;
                 try { Paddle.Checkout.close(); } catch (e) {}
 
@@ -7603,6 +7363,7 @@ function openBuy() { toggleBuyModal(); }
             // One checkout instance per page: the express button's inline one steps aside,
             // exactly as it does for the buy form.
             strideExpressLive = false;
+            strideWarmLive = false;
             strideOverlayOpened = true;
             try { Paddle.Checkout.close(); } catch (e) {}
             Paddle.Checkout.open({
