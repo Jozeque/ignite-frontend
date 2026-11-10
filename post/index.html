@@ -106,13 +106,26 @@ main{flex:1}
 /* The picture: the homepage strip's Stride Bundle card (2026-11-07, his reference) at the size of the screen, drawn
    in percent of its own box the same way: Tendril's real window top left, the Collection's synths as discs in
    /collection/'s colours top right, Stride's lanes in front; the full-size sources of the card's own two shots. */
-.art{position:relative;width:100%;aspect-ratio:300/190}
+.art{position:relative;width:100%;aspect-ratio:300/220}
 .art > img{position:absolute;display:block;max-width:none;object-fit:cover;box-shadow:0 34px 60px -26px rgba(0,0,0,.95)}
-.art .a-tdr{left:0;top:2%;width:40%;height:46%;border-radius:14px;border:1px solid rgba(221,154,82,.35);object-position:50% 0}
-.art .a-stride{left:4%;top:38%;width:96%;height:62%;border-radius:16px;border:1px solid rgba(221,154,82,.45);object-position:50% 40%;
-  box-shadow:0 40px 80px -30px rgba(0,0,0,.95),0 0 90px -40px rgba(198,113,43,.4)}
+.art .a-tdr{left:0;top:0;width:40%;height:38%;border-radius:14px;border:1px solid rgba(221,154,82,.35);object-position:50% 0}
+/* In front, where the strip's card has Stride's lanes: the Tendril showcase itself (Yossi 2026-11-10: "put the Tendril
+   SHOWCASE in the video there"), 16:9 so nothing of it is cut when it plays. */
+.art .a-film{position:absolute;right:0;bottom:0;z-index:2;width:94%;aspect-ratio:16/9;border-radius:16px;overflow:hidden;
+  background:#0e0d0b;border:1px solid rgba(221,154,82,.45);box-shadow:0 40px 80px -30px rgba(0,0,0,.95),0 0 90px -40px rgba(198,113,43,.4)}
+.a-film video{display:block;width:100%;height:100%;object-fit:cover}
+.a-play{position:absolute;left:50%;top:50%;width:clamp(62px,6.6vw,90px);aspect-ratio:1;padding:0;border:0;border-radius:50%;cursor:pointer;
+  transform:translate(-50%,-50%);background:linear-gradient(180deg,var(--ember),var(--copper));
+  box-shadow:0 0 0 9px rgba(198,113,43,.2),0 18px 34px -12px rgba(0,0,0,.9);transition:transform .15s}
+.a-play:hover{transform:translate(-50%,-50%) scale(1.06)}
+.a-play:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+.a-play i::before{content:'';position:absolute;top:50%;left:54%;transform:translate(-50%,-50%);
+  border-style:solid;border-width:clamp(11px,1.15vw,15px) 0 clamp(11px,1.15vw,15px) clamp(18px,1.9vw,25px);border-color:transparent transparent transparent #1b1206}
+.a-cap{position:absolute;left:12px;top:12px;padding:6px 11px;border-radius:999px;background:rgba(20,19,16,.82);font-size:12px;font-weight:700;color:var(--ink2);line-height:1.2}
+.a-cap b{color:var(--ink);font-weight:900}
+.art.playing .a-play,.art.playing .a-cap,.art.playing .ticket{display:none}
 /* Side by side rather than overlapped as on the small card: at this size an overlap cuts the synths' names. */
-.a-discs{position:absolute;left:31%;top:9%;width:69%;height:26%}
+.a-discs{position:absolute;left:31%;top:7%;width:69%;height:22%;z-index:1}
 .a-discs .disc{position:absolute;top:0;left:0;width:19.4%;
   box-shadow:0 0 0 3px #24201a,0 0 0 4px rgba(216,201,176,.16),0 18px 30px -14px rgba(0,0,0,.95)}
 .a-discs .disc:nth-child(2){left:20.15%}
@@ -127,7 +140,7 @@ main{flex:1}
 .disc img.wide{max-width:86%}
 .disc.art-d img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover;filter:none}
 .disc .w{position:relative;font-size:clamp(7px,.7vw,10px);font-weight:800;letter-spacing:.3em;margin-left:.3em;color:var(--copper-lt);text-shadow:0 3px 10px rgba(0,0,0,.6)}
-.ticket{position:absolute;right:-2%;bottom:-7%;width:clamp(116px,12.5vw,186px);transform:rotate(-7deg);
+.ticket{position:absolute;z-index:3;right:-2%;bottom:-7%;width:clamp(116px,12.5vw,186px);transform:rotate(-7deg);
   filter:drop-shadow(0 10px 16px rgba(0,0,0,.5)) drop-shadow(0 2px 3px rgba(0,0,0,.35));animation:pulse 2.4s ease-in-out infinite}
 .ticket svg{display:block;width:100%;height:auto;overflow:visible}
 @keyframes pulse{0%,100%{scale:1}50%{scale:1.05}}
@@ -139,10 +152,23 @@ main{flex:1}
 .inside{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
 .inside-h{margin:0;max-width:66rem;font-size:15.5px;line-height:1.55;color:var(--ink2)}
 .inside-h b{color:var(--ink);font-weight:900}
-.packs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:16px}
+.packs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.18fr);gap:12px;margin-top:16px}
 .pk{display:flex;align-items:center;gap:12px;min-width:0}
+/* The pack's sound, as on /collection/ (Yossi 2026-11-10: "on each of the packs put the PREVIEW of their sound like
+   on /collection"): a round button on the disc's corner, its ring filling as the reel plays, one sound at a time. */
+.pk-d{position:relative;flex:none}
+.pplay{position:absolute;right:-9px;bottom:-7px;width:32px;height:32px;padding:0;border:0;border-radius:50%;cursor:pointer;
+  background:conic-gradient(#f4ede2 calc(var(--prog,0) * 1%),rgba(18,15,11,.92) 0);box-shadow:0 8px 16px -6px rgba(0,0,0,.95);transition:transform .15s}
+.pplay::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 34% 28%,rgba(255,255,255,.35),transparent 55%),var(--a)}
+.pplay i{position:absolute;inset:0;display:block}
+.pplay i::before{content:'';position:absolute;top:50%;left:54%;width:0;height:0;transform:translate(-50%,-50%);
+  border-style:solid;border-width:6px 0 6px 10px;border-color:transparent transparent transparent #fff}
+.pplay.on i::before{left:50%;width:10px;height:12px;border:0;background:linear-gradient(90deg,#fff 0 35%,transparent 35% 65%,#fff 65%)}
+.pplay:hover{transform:scale(1.08)}
+.pplay:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+.pk.hearing .nm{color:var(--copper-lt)}
 .pk > div{min-width:0}
-.pk .disc{width:54px;box-shadow:0 0 0 3px #24201a,0 0 0 4px rgba(216,201,176,.16),0 12px 20px -10px rgba(0,0,0,.9)}
+.pk .disc{width:50px;box-shadow:0 0 0 3px #24201a,0 0 0 4px rgba(216,201,176,.16),0 12px 20px -10px rgba(0,0,0,.9)}
 .pk .disc .w{font-size:7px;letter-spacing:.2em}
 .pk .nm{margin:0;font-size:13px;font-weight:900;line-height:1.2;letter-spacing:.05em;text-transform:uppercase;color:var(--ink)}
 .pk .ct{margin:3px 0 0;font-size:12.5px;line-height:1.35;color:var(--ink2)}
@@ -204,6 +230,7 @@ main{flex:1}
   .wrap{padding:0 18px}
   .packs{grid-template-columns:minmax(0,1fr);gap:12px}
   .pk .disc{width:46px}
+  .pplay{width:38px;height:38px;right:-14px;bottom:-10px}
   .hrow{height:auto;min-height:60px;padding-top:8px;padding-bottom:8px;gap:12px}
   .dl-top{max-width:210px;padding:8px 12px;font-size:12px;text-align:center}
   .blk{padding:24px 20px}
@@ -316,32 +343,36 @@ main{flex:1}
           <p class="fine bad" data-err hidden></p>
           <p class="fine">One payment, in your currency. Your Stride is yours either way.</p>
         </div>
-        <div class="art" aria-hidden="true">
-          <img class="a-tdr" src="/media/tendril/tendril-face.webp" alt="" width="1600" height="1160" decoding="async">
-          <img class="a-stride" src="/media/stride/film/poster-ui-1280.webp" alt="" width="1280" height="720" decoding="async">
-          <div class="a-discs">
+        <div class="art">
+          <img class="a-tdr" src="/media/tendril/tendril-face.webp" alt="" aria-hidden="true" width="1600" height="1160" decoding="async">
+          <div class="a-film">
+            <video playsinline preload="none" poster="/media/tendril/showcase/poster.webp" width="1280" height="720" aria-label="Tendril showcase: a minute of sounds straight out of Tendril, played inside Stride"><source src="/media/tendril/showcase/tendril-examples-720.mp4" type="video/mp4"></video>
+            <button type="button" class="a-play" data-film aria-label="Play the Tendril showcase, a minute of sounds straight out of Tendril"><i aria-hidden="true"></i></button>
+            <span class="a-cap" aria-hidden="true"><b>Tendril showcase</b> &middot; sound on</span>
+          </div>
+          <div class="a-discs" aria-hidden="true">
             <span class="disc" style="--a:#2f8fb0;--b:#0c171d"><img class="wide" src="/media/synths/serum-2.webp" alt="" decoding="async"></span>
             <span class="disc" style="--a:#7b5cd6;--b:#130f21"><img src="/media/synths/vital.webp" alt="" decoding="async"></span>
             <span class="disc" style="--a:#a4763f;--b:#15110d"><img src="/media/synths/diva.webp" alt="" decoding="async"></span>
             <span class="disc" style="--a:#c6712b;--b:#1a0f07"><span class="w">TENDRIL</span></span>
             <span class="disc art-d"><img src="/media/synths/sounds-racks.webp" alt="" decoding="async"></span>
           </div>
-          <span class="ticket"><svg viewBox="0 0 360 232" focusable="false"><defs><linearGradient id="potg" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="#f7b25c"/><stop offset=".55" stop-color="#ec9a45"/><stop offset="1" stop-color="#d9832f"/></linearGradient></defs><path d="M22,0 H338 Q360,0 360,22 V89 A27,27 0 0 0 360,143 V210 Q360,232 338,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#potg)"/><path d="M26,13 H334 Q347,13 347,26 V98 A18,18 0 0 0 347,134 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z" fill="none" stroke="#a85c19" stroke-width="3.2" opacity=".85"/><text x="180" y="96" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="58" fill="#1d130a" letter-spacing="-0.4">SPECIAL</text><text x="180" y="176" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="74" fill="#1d130a" letter-spacing="-1">OFFER</text></svg></span>
+          <span class="ticket" aria-hidden="true"><svg viewBox="0 0 360 232" focusable="false"><defs><linearGradient id="potg" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="#f7b25c"/><stop offset=".55" stop-color="#ec9a45"/><stop offset="1" stop-color="#d9832f"/></linearGradient></defs><path d="M22,0 H338 Q360,0 360,22 V89 A27,27 0 0 0 360,143 V210 Q360,232 338,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#potg)"/><path d="M26,13 H334 Q347,13 347,26 V98 A18,18 0 0 0 347,134 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z" fill="none" stroke="#a85c19" stroke-width="3.2" opacity=".85"/><text x="180" y="96" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="58" fill="#1d130a" letter-spacing="-0.4">SPECIAL</text><text x="180" y="176" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="74" fill="#1d130a" letter-spacing="-1">OFFER</text></svg></span>
         </div>
         </div>
         <!-- WHAT YOU GET, under the offer on the first screen: the five packs as /collection/ counts them, the formula -->
         <div class="inside">
           <p class="inside-h"><b>What you get.</b> Tendril, the three-engine synth, plus the whole Stride Collection: 120 StrideChains for Serum 2, Vital, Diva and Tendril. Not presets: sound design systems, each mapped in Stride with five states to start from. Load one, press play and reroll it until it sounds like yours.</p>
           <div class="packs">
-          <div class="pk"><span class="disc" style="--a:#2f8fb0;--b:#0c171d"><img class="wide" src="/media/synths/serum-2.webp" alt="" decoding="async"></span>
+          <div class="pk"><span class="pk-d"><span class="disc" style="--a:#2f8fb0;--b:#0c171d"><img class="wide" src="/media/synths/serum-2.webp" alt="" decoding="async"></span><button type="button" class="pplay" data-hear data-name="Serum 2" style="--a:#2f8fb0" aria-label="Play the Serum 2 sounds" title="Hear the Serum 2 pack"><i aria-hidden="true"></i></button></span><audio data-hear-audio preload="none" src="/assets/packs/reel-serum.mp3"></audio>
             <div><p class="nm">Serum 2</p><p class="ct"><b>40</b> StrideChains &middot; <b>200</b> states</p><p class="ex">+ all 111 Stride wavetables</p></div></div>
-          <div class="pk"><span class="disc" style="--a:#7b5cd6;--b:#130f21"><img src="/media/synths/vital.webp" alt="" decoding="async"></span>
+          <div class="pk"><span class="pk-d"><span class="disc" style="--a:#7b5cd6;--b:#130f21"><img src="/media/synths/vital.webp" alt="" decoding="async"></span><button type="button" class="pplay" data-hear data-name="Vital" style="--a:#7b5cd6" aria-label="Play the Vital sounds" title="Hear the Vital pack"><i aria-hidden="true"></i></button></span><audio data-hear-audio preload="none" src="/assets/packs/reel-vital.mp3"></audio>
             <div><p class="nm">Vital</p><p class="ct"><b>40</b> StrideChains &middot; <b>200</b> states</p><p class="ex">+ all 111 Stride wavetables</p></div></div>
-          <div class="pk"><span class="disc" style="--a:#a4763f;--b:#15110d"><img src="/media/synths/diva.webp" alt="" decoding="async"></span>
+          <div class="pk"><span class="pk-d"><span class="disc" style="--a:#a4763f;--b:#15110d"><img src="/media/synths/diva.webp" alt="" decoding="async"></span><button type="button" class="pplay" data-hear data-name="Diva" style="--a:#a4763f" aria-label="Play the Diva sounds" title="Hear the Diva pack"><i aria-hidden="true"></i></button></span><audio data-hear-audio preload="none" src="/assets/packs/reel-diva.mp3"></audio>
             <div><p class="nm">Diva</p><p class="ct"><b>20</b> StrideChains &middot; <b>100</b> states</p><p class="ex">Analog modelling</p></div></div>
-          <div class="pk"><span class="disc" style="--a:#c6712b;--b:#1a0f07"><span class="w">TENDRIL</span></span>
+          <div class="pk"><span class="pk-d"><span class="disc" style="--a:#c6712b;--b:#1a0f07"><span class="w">TENDRIL</span></span><button type="button" class="pplay" data-hear data-name="Tendril" style="--a:#c6712b" aria-label="Play the Tendril sounds" title="Hear the Tendril pack"><i aria-hidden="true"></i></button></span><audio data-hear-audio preload="none" src="/assets/packs/reel-tendril.mp3"></audio>
             <div><p class="nm">Tendril</p><p class="ct"><b>20</b> StrideChains &middot; <b>100</b> states</p><p class="ex">Three engines</p></div></div>
-          <div class="pk"><span class="disc art-d"><img src="/media/synths/sounds-racks.webp" alt="" decoding="async"></span>
+          <div class="pk"><span class="pk-d"><span class="disc art-d"><img src="/media/synths/sounds-racks.webp" alt="" decoding="async"></span><button type="button" class="pplay" data-hear data-name="Sounds &amp; Racks" style="--a:#d9822b" aria-label="Play the Sounds &amp; Racks sounds" title="Hear the Sounds &amp; Racks pack"><i aria-hidden="true"></i></button></span><audio data-hear-audio preload="none" src="/assets/packs/collection-teaser.mp3"></audio>
             <div><p class="nm">Sounds &amp; Racks</p><p class="ct"><b>250+</b> sounds &middot; <b>15</b> Ableton racks</p><p class="ex">The Experimental Collection</p></div></div>
         </div>
         <div class="eq" role="img" aria-label="120 StrideChains, times 111 Stride original wavetables, times 5 states in every chain, times everything Stride does: endless sound design variations">
@@ -361,7 +392,7 @@ main{flex:1}
           <h2>Three engines. <span class="brand">One evolving sound design playground.</span></h2>
           <p>Shape the harmonics, push the effects, and let three independent patterns play off each other. Explore with Stride to discover fresh sounds, mudpies and sequences from the same patch.</p>
           <p>It comes with 22 StrideChains: sound design systems ready to load and explore.</p>
-          <div class="film"><video controls playsinline preload="none" poster="/media/tendril/showcase/poster.webp" width="1920" height="1080" aria-label="Tendril showcase: sounds played inside Stride"><source src="/media/tendril/showcase/tendril-examples-720.mp4" type="video/mp4"></video></div>
+          <div class="film"><video controls playsinline preload="none" poster="/media/tendril/film/poster-1280.webp" width="1280" height="720" aria-label="Tendril and Stride: thirty seconds of what it does"><source src="/media/tendril/film/tendril-promo-720.mp4" type="video/mp4"></video></div>
         </article>
         <article class="blk">
           <span class="word">STRIDECHAINS</span>
@@ -491,6 +522,45 @@ main{flex:1}
     });
   });
   q('[data-skip]').addEventListener('click', function () { go(DOWNLOAD); });
+
+  // The pack reels (/collection/'s player): one plays at a time, on a press only; a reel stops every video and a video
+  // stops the reels.
+  var hears = qa('[data-hear]');
+  function reelOf(btn) { var box = btn.closest('.pk'); return box ? box.querySelector('[data-hear-audio]') : null; }
+  function hearShow(btn, playing) {
+    btn.classList.toggle('on', playing);
+    btn.setAttribute('aria-label', (playing ? 'Pause the ' : 'Play the ') + btn.getAttribute('data-name') + ' sounds');
+    btn.closest('.pk').classList.toggle('hearing', playing);
+  }
+  function stopReels(except) {
+    hears.forEach(function (b) { var a = reelOf(b); if (a && a !== except && !a.paused) { a.pause(); hearShow(b, false); } });
+  }
+  function stopFilms() { qa('video').forEach(function (v) { try { if (!v.paused) v.pause(); } catch (e) {} }); }
+  hears.forEach(function (btn) {
+    var au = reelOf(btn);
+    if (!au) return;
+    btn.addEventListener('click', function () {
+      if (au.paused) {
+        stopReels(au);
+        stopFilms();
+        var pr = au.play(); if (pr && pr.catch) pr.catch(function () { hearShow(btn, false); });
+        hearShow(btn, true);
+      } else { au.pause(); hearShow(btn, false); }
+    });
+    au.addEventListener('timeupdate', function () { if (au.duration) btn.style.setProperty('--prog', (100 * au.currentTime / au.duration).toFixed(2)); });
+    au.addEventListener('ended', function () { hearShow(btn, false); au.currentTime = 0; btn.style.setProperty('--prog', 0); });
+  });
+  qa('video').forEach(function (v) { v.addEventListener('play', function () { stopReels(null); }); });
+  // The hero's showcase: the button starts it with its sound, then the film's own controls take over.
+  var film = q('.a-film video'), filmBtn = q('[data-film]');
+  if (film && filmBtn) {
+    filmBtn.addEventListener('click', function () {
+      stopReels(null);
+      q('.art').classList.add('playing');
+      film.controls = true;
+      var pr = film.play(); if (pr && pr.catch) pr.catch(function () {});
+    });
+  }
   // The bar at the bottom shows once the hero's own button has scrolled off the screen.
   try {
     var bar = q('.bar'), heroBuy = q('.hero [data-buy]');
@@ -504,6 +574,7 @@ main{flex:1}
     if (paid) return;
     paid = true;
     qa('video').forEach(function (v) { try { v.pause(); } catch (e) {} });
+    qa('[data-hear-audio]').forEach(function (a) { try { a.pause(); } catch (e) {} });
     show('done');
     setTimeout(function () { go(DOWNLOAD); }, 4500);
   }
