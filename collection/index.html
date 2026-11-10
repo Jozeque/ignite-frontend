@@ -1000,7 +1000,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .mk-end p{font-size:1.25rem}
   }
 </style>
-<link rel="stylesheet" href="/_legacy/css/collection-index.026a2e8684.css">
+<link rel="stylesheet" href="/_legacy/css/collection-index.90a9a8d864.css">
 <meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -1916,6 +1916,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (!window.Paddle) return false;
     try {
       Paddle.Initialize({ token: TOKEN, eventCallback: function (ev) {
+        if (warmLive) return;   // the hidden warm-up (warmStart) is not a checkout anyone sees
         try { if (window.strideClarity) window.strideClarity.paddle(ev, 'collection'); } catch (e) {}
         try {
           if (ev && ev.name === 'checkout.completed' && ev.data && ev.data.transaction_id) {
@@ -1943,8 +1944,70 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var FAILED = 'Checkout could not open. Please try again, or write to home@stridehub.io.';
   function note(sel, text) { var el = q(sel); el.textContent = text || ''; el.hidden = !text; }
 
+  // What the cards hold, the cheapest way Paddle sells it: the cart every buy button opens.
+  function cartItems(t) {
+    var one = function (id) { return { priceId: id, quantity: 1 }; };
+    return t.mode === 'whole' ? [one(WHOLE.price)]
+      : t.mode === 'all' ? [one(ALL_FOUR.price)].concat(coll ? [one(COLL.withPacks)] : [])
+      : t.keys.map(function (p) { return one(p.price); }).concat(coll ? [one(t.n ? COLL.withPacks : COLL.alone)] : []);
+  }
+
+  // Paddle's checkout warms up before the press, as the homepage's buy form does since 2026-11-10 (Yossi, in Hebrew,
+  // translated: "Paddle took about 9 seconds to open... if it can be shortened", then for this page "Yes, do it here").
+  // Paddle's window downloads about 600 KB of its own code before it shows anything, and its payment form then waits for
+  // Stripe's wallet check and Google Pay (about 1.6 MB more); measured as a mid-range Android phone on 4G, the Pay button
+  // took 16-19 s from the press with nothing cached. Nothing on this page loaded any of it before the press (no wallet,
+  // no form to type in). So the same cart opens in an inline checkout nobody sees: on the first press on the pack picker,
+  // or once the page has been in view for 5 seconds (a bounce costs nothing), never with Data Saver on, never after a
+  // checkout opened. Its code then sits in the browser's cache (Paddle's for 4 hours) and its connections are open when
+  // the press comes. Once per page view. It is one more Paddle draft, as the homepage's wallet makes on every visit:
+  // health.py skips drafts and the webhook ignores transaction.created. None of its events count (the eventCallback
+  // drops them while warmLive is set), and a press closes it before opening the real checkout.
+  var warmLive = false, warmDone = false, opened = false;
+  function warmStart() {
+    if (warmDone || opened || document.visibilityState !== 'visible') return;
+    try { if (navigator.connection && navigator.connection.saveData) return; } catch (e) {}
+    var t = totals();
+    if (!t.any || !init()) return;
+    warmDone = true;
+    try {
+      var box = document.createElement('div');
+      box.className = 'stride-paddle-warm';
+      box.setAttribute('aria-hidden', 'true');
+      box.inert = true;
+      box.style.cssText = 'position:fixed;left:-10000px;top:0;width:360px;height:450px;overflow:hidden;opacity:0;pointer-events:none;';
+      document.body.appendChild(box);
+      warmLive = true;
+      var o = { items: cartItems(t),
+        settings: { displayMode: 'inline', frameTarget: 'stride-paddle-warm', frameInitialHeight: 450,
+          frameStyle: 'width:100%;min-width:312px;background-color:transparent;border:none;', variant: 'one-page', theme: 'dark' } };
+      if (bf) o.discountId = BF_DISCOUNT;
+      Paddle.Checkout.open(o);
+    } catch (e) { warmLive = false; }
+  }
+  (function () {
+    var timer = null;
+    function arm() {
+      if (warmDone || opened || timer || document.visibilityState !== 'visible') return;
+      timer = setTimeout(function () { timer = null; warmStart(); }, 5000);
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible') { if (timer) { clearTimeout(timer); timer = null; } }
+      else arm();
+    });
+    if (document.prerendering) document.addEventListener('prerenderingchange', arm, { once: true });
+    else arm();
+    // A press on the picker is a buyer choosing: no need to wait out the 5 seconds.
+    document.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('[data-pick] .mk-add, [data-all]')) warmStart();
+    });
+  })();
+
   function checkout(items, amount, noteSel, clarityName) {
     if (!init()) { note(noteSel, FAILED); return; }
+    // The real checkout takes Paddle's one checkout over: the hidden warm-up goes first, and none starts after.
+    opened = true;
+    if (warmLive) { warmLive = false; try { Paddle.Checkout.close(); } catch (e) {} }
     try {
       var value = { value: Math.round(amount * 100) / 100, currency: currency };
       try { if (window.StrideTrack) StrideTrack.push('begin_checkout', value); } catch (e2) {}
@@ -1964,11 +2027,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     btn.addEventListener('click', function () {
       var t = totals();
       if (!t.any) return;
-      var one = function (id) { return { priceId: id, quantity: 1 }; };
-      var items = t.mode === 'whole' ? [one(WHOLE.price)]
-        : t.mode === 'all' ? [one(ALL_FOUR.price)].concat(coll ? [one(COLL.withPacks)] : [])
-        : t.keys.map(function (p) { return one(p.price); }).concat(coll ? [one(t.n ? COLL.withPacks : COLL.alone)] : []);
-      checkout(items, t.now, '[data-note="' + btn.getAttribute('data-buy') + '"]',
+      checkout(cartItems(t), t.now, '[data-note="' + btn.getAttribute('data-buy') + '"]',
                t.mode === 'whole' ? 'collection_checkout_whole' : 'collection_checkout');
     });
   });
