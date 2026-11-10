@@ -2077,6 +2077,55 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .press-x{top:10px;right:10px}
   }
 
+  /* ── STRIDECHAINS (2026-11-10) ────────────────────────────────────────────
+     Right before Tendril, in the same panel, type and size (Yossi 2026-11-10: "a strip the size of
+     Tendril's, just explain to people what it even is"). The film is the Collection's own showcase
+     (/collection/ plays the same files), opened over the page on a press in the homepage's .vpop.
+     On a desktop it stands left and the words right, so the two strips alternate; the formula is
+     /collection/'s (.mk-eq) with the homepage's numbers, then the buttons. */
+  @media (min-width:1024px){
+    .tdr-grid.sc-grid{grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)}
+    .sc-grid .sc-film{order:-1}
+  }
+  .sc-film{margin:0;min-width:0}
+  .sc-play{position:relative;display:block;width:100%;padding:0;margin:0;line-height:0;cursor:pointer;overflow:hidden;
+    border:1px solid rgba(198,113,43,.28);border-radius:16px;background:#11100e;
+    box-shadow:0 34px 70px -34px rgba(0,0,0,.95),0 0 70px -24px rgba(198,113,43,.2)}
+  .sc-play img{display:block;width:100%;height:auto;transition:transform .6s ease}
+  .sc-play:hover img{transform:scale(1.015)}
+  .sc-play:focus-visible{outline:2px solid var(--copper-lt);outline-offset:3px}
+  .sc-mark{position:absolute;left:50%;top:50%;width:72px;height:72px;margin:-36px 0 0 -36px;border-radius:999px;
+    display:flex;align-items:center;justify-content:center;background:rgba(198,113,43,.95);
+    box-shadow:0 14px 40px -10px rgba(0,0,0,.85);transition:transform .2s}
+  .sc-play:hover .sc-mark{transform:scale(1.06)}
+  .sc-mark svg{margin-left:3px}
+  /* The formula: one row of five equal parts on a desktop, one line per part below 930px. */
+  .sc-eq{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0 18px;
+    margin-top:2.5rem;padding-top:2.25rem;border-top:1px solid var(--line)}
+  .sc-eq>div{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"op val" ". cap";align-items:baseline;align-content:start}
+  .sc-eq i{grid-area:op;margin-right:14px;font-style:normal;font-size:clamp(1.6rem,2.4vw,2.4rem);font-weight:300;line-height:1;color:var(--copper-lt)}
+  .sc-eq b{grid-area:val;font-size:clamp(2.3rem,3.75vw,3.4rem);font-weight:900;line-height:1;color:var(--ink);letter-spacing:-.03em;white-space:nowrap}
+  .sc-eq span{grid-area:cap;margin-top:10px;font-size:11px;font-weight:800;line-height:1.5;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+  .sc-eq .res span{color:var(--copper-lt)}
+  @media (max-width:929px){
+    .sc-eq{grid-template-columns:minmax(0,1fr);gap:12px;margin-top:2rem;padding-top:1.75rem}
+    .sc-eq>div{grid-template-columns:30px 104px minmax(0,1fr);grid-template-areas:"op val cap";align-items:center}
+    .sc-eq i{margin-right:0;font-size:1.7rem}
+    .sc-eq b{font-size:2.3rem}
+    .sc-eq .st b{font-size:1.95rem}
+    .sc-eq span{margin-top:0}
+  }
+  /* On a phone the poster right above is the way to the film. */
+  @media (max-width:640px){ .sc-foot [data-sc-watch]{display:none} }
+  /* The buttons and the fine print: one row under the formula on a desktop, stacked on a phone. */
+  .sc-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px 32px;margin-top:2.25rem}
+  .sc-fine{max-width:30rem;font-size:12px;line-height:1.6;color:var(--ink3)}
+  .sc-fine p+p{margin-top:6px}
+  @media (min-width:1180px){ .sc-fine{text-align:right} }
+  .sc-own{color:var(--copper-lt);text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(221,154,82,.45)}
+  .sc-own:hover{color:var(--ink)}
+  [data-sc-owners][hidden]{display:none}
+
   /* ── TENDRIL (2026-10-22) ─────────────────────────────────────────────────
      The section after "You already have everything you need": a second product, a synth
      built to be explored with Stride, sold to Stride owners only. No price and no buy
@@ -4458,6 +4507,127 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         }
       });
     })();
+  </script>
+
+  <!-- ───────────────── STRIDECHAINS (2026-11-10): what a StrideChain is, right before Tendril ───────────────── -->
+  <!-- Yossi 2026-11-10: a strip the size of Tendril's that tells people what StrideChains are, in short; his formula
+       (wavetables x states x everything Stride does = endless variations, as on /collection/ and /owners/); and that
+       they are not presets but a playground for sound design exploration. The numbers are the homepage's own (the
+       Bundle card's 120 StrideChains and 111 wavetables). The owners' line shows only while Black Friday runs
+       (STRIDE_BF), which ends with the owners' half price (2026-12-01 08:00 UTC); /owners/ takes their email. -->
+  <section data-ms="chains" id="stridechains" class="mb-28 scroll-mt-8">
+    <div class="panel screws rounded-3xl p-6 md:p-10"><span class="s s1"></span><span class="s s2"></span>
+      <div class="tdr-grid sc-grid">
+        <div>
+          <h2 class="tdr-h mb-5"><span class="tdr-word" data-no-translate>STRIDECHAINS</span>Pas des presets. <span class="brand">Un terrain de jeu pour explorer le sound design.</span></h2>
+          <p class="text-base md:text-lg leading-relaxed ink2 mb-4">Un preset, c'est un seul son. Une StrideChain, c'est un système de sound design : un patch pour Serum 2, Vital, Diva ou Tendril, mappé dans Stride, avec les lanes en place, les plages choisies et les potards essentiels verrouillés.</p>
+          <p class="text-base md:text-lg leading-relaxed ink2">Cinq états d'où partir, et depuis chacun d'eux Stride emmène le même instrument ailleurs.</p>
+        </div>
+        <figure class="sc-film">
+          <button type="button" class="sc-play" data-sc-watch aria-label="Regarder le showcase StrideChains">
+            <img src="/media/collection/film/poster-1280.webp" width="1280" height="720" loading="lazy" decoding="async"
+                 alt="120 StrideChains pour Serum 2, Vital, Diva et Tendril : une chain pour Vital ouverte dans Stride, chaque lane mappée">
+            <span class="sc-mark" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="#1c1206"/></svg></span>
+          </button>
+        </figure>
+      </div>
+      <div class="sc-eq" role="img" aria-label="120 StrideChains, fois 111 wavetables originales Stride, fois 5 états dans chaque chain, fois tout ce que fait Stride : des variations de sound design sans fin">
+        <div><b>120</b><span>StrideChains pour Serum 2, Vital, Diva et Tendril</span></div>
+        <div><i aria-hidden="true">&times;</i><b>111</b><span>Wavetables originales Stride</span></div>
+        <div><i aria-hidden="true">&times;</i><b>5</b><span>États dans chaque chain</span></div>
+        <div class="st"><i aria-hidden="true">&times;</i><b class="brand">Stride</b><span>Régénère, mute, dessine, verrouille</span></div>
+        <div class="res"><i aria-hidden="true">=</i><b class="brand">&infin;</b><span>Des variations de sound design sans fin</span></div>
+      </div>
+      <div class="sc-foot">
+        <div class="flex flex-wrap gap-3">
+          <a class="btn-copper text-sm uppercase tracking-widest py-3.5 px-7 rounded-full" href="/collection/">Explore les StrideChains</a>
+          <button type="button" class="btn-ghost text-sm uppercase tracking-widest py-3.5 px-7 rounded-full" data-sc-watch>Regarder le showcase</button>
+        </div>
+        <div class="sc-fine">
+          <p>Dans la Stride Collection et dans le Stride Bundle. Synthés non inclus : chaque pack a besoin de ta propre copie de son synthé.</p>
+          <p data-sc-owners hidden><a class="sc-own" href="/owners/">Tu as déjà Stride ? La Collection est à moitié prix pour toi jusqu'à fin novembre.</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script>
+  // ── StrideChains (2026-11-10) ───────────────────────────────────────────────────────────────────
+  // The owners' line while Black Friday runs, and the Collection's showcase over the page on a press
+  // (the poster or "Watch the showcase"): the upright cut on a phone, 1080p everywhere else, built on
+  // the first press so nothing is fetched before somebody asks, like the hero's film.
+  (function () {
+    'use strict';
+    var own = document.querySelector('[data-sc-owners]');
+    if (own && window.STRIDE_BF) own.hidden = false;
+    var FILM_WIDE = '/media/collection/film/collection-showcase-1080.mp4';
+    var FILM_TALL = '/media/collection/film/collection-showcase-9x16.mp4';
+    var TALL = window.matchMedia ? window.matchMedia('(max-width:640px)') : null;
+    var pop = null, film = null, filmTall = null, openedAt = 0;
+    function tall() { return !!(TALL && TALL.matches); }
+    function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
+    function build() {
+      filmTall = tall();
+      pop = document.createElement('div');
+      pop.className = filmTall ? 'vpop v' : 'vpop';
+      pop.setAttribute('role', 'dialog');
+      pop.setAttribute('aria-modal', 'true');
+      pop.setAttribute('aria-label', 'The StrideChains showcase');
+      var card = document.createElement('div');
+      card.className = 'vpop-card';
+      film = document.createElement('video');
+      film.setAttribute('controls', '');
+      film.setAttribute('playsinline', '');
+      film.setAttribute('preload', 'none');
+      film.src = filmTall ? FILM_TALL : FILM_WIDE;
+      var x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'vpop-x';
+      x.setAttribute('aria-label', 'Close');
+      x.innerHTML = '&times;';
+      x.addEventListener('click', close);
+      card.appendChild(film);
+      card.appendChild(x);
+      pop.appendChild(card);
+      // Only the backdrop closes, and not with the very tap that opened it.
+      pop.addEventListener('click', function (ev) { if (ev.target === pop && Date.now() - openedAt > 400) close(); });
+      document.body.appendChild(pop);
+    }
+    function open() {
+      if (pop && filmTall !== tall() && !pop.classList.contains('on')) { pop.parentNode.removeChild(pop); pop = null; }
+      if (!pop) build();
+      if (pop.classList.contains('on')) return;
+      var root = document.documentElement, bar = window.innerWidth - root.clientWidth;
+      root.style.overflow = 'hidden';
+      if (bar > 0) root.style.paddingRight = bar + 'px';
+      pop.classList.add('on');
+      openedAt = Date.now();
+      clarity('chains_film_open');
+      film.currentTime = 0;
+      film.muted = false;
+      var p = film.play();
+      if (p && p.catch) p.catch(function () {
+        if (!pop.classList.contains('on')) return;
+        film.muted = true;
+        film.play().catch(function () {});
+      });
+      setTimeout(function () { film.focus(); }, 0);
+    }
+    function close() {
+      if (!pop || !pop.classList.contains('on')) return;
+      film.pause();
+      pop.classList.remove('on');
+      var root = document.documentElement;
+      root.style.overflow = '';
+      root.style.paddingRight = '';
+    }
+    var btns = document.querySelectorAll('[data-sc-watch]');
+    for (var i = 0; i < btns.length; i++) btns[i].addEventListener('click', function (ev) { ev.preventDefault(); open(); });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') close(); });
+    var link = document.querySelector('#stridechains a[href="/collection/"]');
+    if (link) link.addEventListener('click', function () { clarity('chains_strip_explore'); });
+    var ownLink = own && own.querySelector('a');
+    if (ownLink) ownLink.addEventListener('click', function () { clarity('chains_strip_owners'); });
+  })();
   </script>
 
   <!-- ───────────────── TENDRIL (2026-10-22): a synth built to be explored with Stride ───────────────── -->
