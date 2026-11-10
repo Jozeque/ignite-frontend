@@ -894,6 +894,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mk-bf svg{display:block;width:100%;height:auto;overflow:visible;pointer-events:none;transform:rotate(-8deg);
     filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)) drop-shadow(0 2px 2px rgba(0,0,0,.35))}
   .mk-pr b s.mk-pwas{margin-left:7px;font-size:13px;font-weight:800;color:var(--ink3)}
+  /* The ticket breathes like every Black Friday ticket on the site (Yossi 2026-11-10: "a small pulse, a bit alive"). */
+  @keyframes bfTicketPulse{0%,100%{scale:1}50%{scale:1.05}}
+  .mk-bf svg{animation:bfTicketPulse 2.4s ease-in-out infinite}
+  @media (prefers-reduced-motion:reduce){ .mk-bf svg{animation:none} }
+  .mk-iab{margin-top:12px;font-size:13px;line-height:1.5;font-weight:700;color:var(--copper-lt)}
   @media (max-width:639px){ .mk-bf{width:84px} }
   .mk-top{margin-top:40px}
   .mk-pkhint{margin-bottom:18px;font-size:15.5px;line-height:1.6;color:var(--ink2)}
@@ -1514,6 +1519,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button class="mk-btn" type="button" data-buy="hero">Get the whole Collection</button>
         </div>
         <p class="mk-note" data-note="hero" aria-live="polite" hidden></p>
+        <!-- Instagram's and Facebook's own browsers (Yossi 2026-11-10): only there, the way out to the phone's own browser
+             to pay (the script at the end shows it). -->
+        <p class="mk-iab" data-iab hidden><span data-iab-os="ios">Paying is easier in Safari: tap ••• and Open in browser.</span><span data-iab-os="android" hidden>Paying is easier in Chrome: tap ⋮ and Open in browser.</span></p>
         <p class="mk-legal">Instant download. By buying you ask for the files right away and agree that your 14-day right to cancel ends once the download starts. <a href="/refund.html">Refund policy</a></p>
         <p class="mk-own"><b>Synths not included</b>Each pack needs your own copy of its synth: Serum 2, Vital, Diva or Tendril. The chains open in Stride, and the racks need Ableton Live.</p>
       </div>
@@ -2042,6 +2050,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     pop.addEventListener('click', function (e) { if (e.target === pop || e.target.closest('[data-vpop-close]')) closePop(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePop(); });
   }
+})();
+</script>
+<script>
+// Instagram's and Facebook's own browsers (Yossi 2026-11-10, as on the homepage's buy form): the line under the hero's
+// button, Safari's words on an iPhone, Chrome's on Android, and a Clarity tag for the visit.
+(function () {
+  'use strict';
+  var ua = navigator.userAgent || '';
+  if (!/Instagram|FBAN|FBAV|FB_IAB|FBIOS|FB4A/i.test(ua)) return;
+  var android = /Android/i.test(ua);
+  var lines = document.querySelectorAll('[data-iab]');
+  for (var i = 0; i < lines.length; i++) {
+    var ios = lines[i].querySelector('[data-iab-os="ios"]'), and = lines[i].querySelector('[data-iab-os="android"]');
+    if (ios) ios.hidden = android;
+    if (and) and.hidden = !android;
+    lines[i].hidden = false;
+  }
+  try { if (window.strideClarity) window.strideClarity('', { in_app: android ? 'android' : 'ios' }); } catch (e) {}
 })();
 </script>
 </body>

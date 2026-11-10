@@ -1965,6 +1965,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* While the form shows its ticket, the pin behind the form's backdrop steps out of view. */
   html.bf-buying #bfpin{visibility:hidden}
   @media (prefers-reduced-motion:reduce){.bf-buyt,.bf-buyt svg{animation:none}.bf-buyt .bfp-t{transition:none}}
+  /* Every Black Friday ticket breathes (Yossi 2026-11-10: "every badge on the site with Black Friday should have a small
+     pulse, a bit alive"). It animates the scale property, so it rides on each ticket's own tilt and on the pin's nudge;
+     anyone who asked their device for less motion gets them still. */
+  @keyframes bfTicketPulse{0%,100%{scale:1}50%{scale:1.05}}
+  .sd-price-box .seal2.sd-save.bf-ticket svg,.bcard-ticket svg,.bfd-tk svg{animation:bfTicketPulse 2.4s ease-in-out infinite}
+  .bfp-ticket svg{animation:bfpin-nudge 9s ease-in-out 3s 4,bfTicketPulse 2.4s ease-in-out infinite}
+  .bf-buyt svg{animation:bfpin-nudge 9s ease-in-out 2s 4,bfTicketPulse 2.4s ease-in-out infinite}
+  @media (prefers-reduced-motion:reduce){
+    .sd-price-box .seal2.sd-save.bf-ticket svg,.bcard-ticket svg,.bfd-tk svg,.bfp-ticket svg,.bf-buyt svg{animation:none}
+  }
+  /* The buy form's line for Instagram's and Facebook's own browsers (2026-11-10), shown by the script after the form. */
+  .buy-iab{margin-top:12px;font-size:12px;line-height:1.5;font-weight:700;color:var(--copper-lt);text-align:center}
+  /* The terms over the buy form (2026-11-10): the form's own card, with its email and box kept underneath. From the
+     wallet's line (no form open) the same panel opens in a window of its own (.buy-doc-pop). */
+  .buy-doc{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;overflow:hidden;border-radius:inherit;
+    background:var(--bg);border:1px solid var(--line)}
+  .buy-doc[hidden]{display:none}
+  .buy-doc-bar{flex:none;display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .buy-doc-back{font:inherit;font-size:13px;font-weight:800;letter-spacing:.03em;color:var(--copper-lt);background:none;border:0;padding:8px 4px;cursor:pointer}
+  .buy-doc-back:hover{color:var(--ink)}
+  .buy-doc-frame{flex:1 1 auto;width:100%;min-height:0;border:0;background:var(--bg)}
+  .buy-doc-pop{position:fixed;inset:0;z-index:1300;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(8,7,5,.86)}
+  .buy-doc-pop.on{display:flex}
+  .buy-doc-pop .buy-doc{position:relative;inset:auto;width:min(560px,100%);height:min(720px,calc(100vh - 32px));border-radius:18px}
   /* Below 900px the form scrolls in its own box: the ticket hangs under the card, inside that box,
      and the box keeps room for it at the end. */
   @media (max-width:899.98px){
@@ -3251,7 +3275,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    alone, because Paddle's express frame cannot be asked for PayPal. -->
               <button type="button" class="pp-btn" aria-label="PayPal" data-no-translate hidden onclick="strideCheckoutPayPal()"><svg viewBox="0 0 101 32" width="76" height="24" aria-hidden="true" focusable="false"><path fill="#003087" d="M 12.237 2.8 L 4.437 2.8 C 3.937 2.8 3.437 3.2 3.337 3.7 L 0.237 23.7 C 0.137 24.1 0.437 24.4 0.837 24.4 L 4.537 24.4 C 5.037 24.4 5.537 24 5.637 23.5 L 6.437 18.1 C 6.537 17.6 6.937 17.2 7.537 17.2 L 10.037 17.2 C 15.137 17.2 18.137 14.7 18.937 9.8 C 19.237 7.7 18.937 6 17.937 4.8 C 16.837 3.5 14.837 2.8 12.237 2.8 Z M 13.137 10.1 C 12.737 12.9 10.537 12.9 8.537 12.9 L 7.337 12.9 L 8.137 7.7 C 8.137 7.4 8.437 7.2 8.737 7.2 L 9.237 7.2 C 10.637 7.2 11.937 7.2 12.637 8 C 13.137 8.4 13.337 9.1 13.137 10.1 Z"/><path fill="#003087" d="M 35.437 10 L 31.737 10 C 31.437 10 31.137 10.2 31.137 10.5 L 30.937 11.5 L 30.637 11.1 C 29.837 9.9 28.037 9.5 26.237 9.5 C 22.137 9.5 18.637 12.6 17.937 17 C 17.537 19.2 18.037 21.3 19.337 22.7 C 20.437 24 22.137 24.6 24.037 24.6 C 27.337 24.6 29.237 22.5 29.237 22.5 L 29.037 23.5 C 28.937 23.9 29.237 24.3 29.637 24.3 L 33.037 24.3 C 33.537 24.3 34.037 23.9 34.137 23.4 L 36.137 10.6 C 36.237 10.4 35.837 10 35.437 10 Z M 30.337 17.2 C 29.937 19.3 28.337 20.8 26.137 20.8 C 25.037 20.8 24.237 20.5 23.637 19.8 C 23.037 19.1 22.837 18.2 23.037 17.2 C 23.337 15.1 25.137 13.6 27.237 13.6 C 28.337 13.6 29.137 14 29.737 14.6 C 30.237 15.3 30.437 16.2 30.337 17.2 Z"/><path fill="#003087" d="M 55.337 10 L 51.637 10 C 51.237 10 50.937 10.2 50.737 10.5 L 45.537 18.1 L 43.337 10.8 C 43.237 10.3 42.737 10 42.337 10 L 38.637 10 C 38.237 10 37.837 10.4 38.037 10.9 L 42.137 23 L 38.237 28.4 C 37.937 28.8 38.237 29.4 38.737 29.4 L 42.437 29.4 C 42.837 29.4 43.137 29.2 43.337 28.9 L 55.837 10.9 C 56.137 10.6 55.837 10 55.337 10 Z"/><path fill="#009cde" d="M 67.737 2.8 L 59.937 2.8 C 59.437 2.8 58.937 3.2 58.837 3.7 L 55.737 23.6 C 55.637 24 55.937 24.3 56.337 24.3 L 60.337 24.3 C 60.737 24.3 61.037 24 61.037 23.7 L 61.937 18 C 62.037 17.5 62.437 17.1 63.037 17.1 L 65.537 17.1 C 70.637 17.1 73.637 14.6 74.437 9.7 C 74.737 7.6 74.437 5.9 73.437 4.7 C 72.237 3.5 70.337 2.8 67.737 2.8 Z M 68.637 10.1 C 68.237 12.9 66.037 12.9 64.037 12.9 L 62.837 12.9 L 63.637 7.7 C 63.637 7.4 63.937 7.2 64.237 7.2 L 64.737 7.2 C 66.137 7.2 67.437 7.2 68.137 8 C 68.637 8.4 68.737 9.1 68.637 10.1 Z"/><path fill="#009cde" d="M 90.937 10 L 87.237 10 C 86.937 10 86.637 10.2 86.637 10.5 L 86.437 11.5 L 86.137 11.1 C 85.337 9.9 83.537 9.5 81.737 9.5 C 77.637 9.5 74.137 12.6 73.437 17 C 73.037 19.2 73.537 21.3 74.837 22.7 C 75.937 24 77.637 24.6 79.537 24.6 C 82.837 24.6 84.737 22.5 84.737 22.5 L 84.537 23.5 C 84.437 23.9 84.737 24.3 85.137 24.3 L 88.537 24.3 C 89.037 24.3 89.537 23.9 89.637 23.4 L 91.637 10.6 C 91.637 10.4 91.337 10 90.937 10 Z M 85.737 17.2 C 85.337 19.3 83.737 20.8 81.537 20.8 C 80.437 20.8 79.637 20.5 79.037 19.8 C 78.437 19.1 78.237 18.2 78.437 17.2 C 78.737 15.1 80.537 13.6 82.637 13.6 C 83.737 13.6 84.537 14 85.137 14.6 C 85.737 15.3 85.937 16.2 85.737 17.2 Z"/><path fill="#009cde" d="M 95.337 3.3 L 92.137 23.6 C 92.037 24 92.337 24.3 92.737 24.3 L 95.937 24.3 C 96.437 24.3 96.937 23.9 97.037 23.4 L 100.237 3.5 C 100.337 3.1 100.037 2.8 99.637 2.8 L 96.037 2.8 C 95.637 2.8 95.437 3 95.337 3.3 Z"/></svg></button>
               <div class="paddle-express-checkout"></div>
-              <p class="paddle-express-terms text-[10px] ink3 mt-0.5 leading-snug opacity-80" hidden>Vendido por Paddle.com Market Ltd. Al pagar aceptas los <a href="/terms.html" target="_blank" class="underline">Términos</a> y la <a href="/refund.html" target="_blank" class="underline">Política de reembolso</a>.</p>
+              <p class="paddle-express-terms text-[10px] ink3 mt-0.5 leading-snug opacity-80" hidden>Vendido por Paddle.com Market Ltd. Al pagar aceptas los <a href="/terms.html" target="_blank" data-doc class="underline">Términos</a> y la <a href="/refund.html" target="_blank" data-doc class="underline">Política de reembolso</a>.</p>
             </div>
           </div>
           <a href="/try/" class="btn-ghost text-[11px] uppercase tracking-[0.1em] py-3 px-5 rounded-xl">Explora gratis 7 días</a>
@@ -4832,6 +4856,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- ===================== BUY STRIDE FORM MODAL ===================== -->
 <div id="buy-modal" class="fixed inset-0 z-[1002] hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
     <div class="glass-panel w-full max-w-md p-8 rounded-3xl relative">
+        <!-- The system requirements, the refund policy and the Terms open here, over the form, not in a new tab (Yossi
+             2026-11-10): the email and the box stay as they were. The wallet's Terms line opens the same panel (buy-doc-pop). -->
+        <div class="buy-doc" data-buy-doc hidden>
+          <div class="buy-doc-bar"><button type="button" class="buy-doc-back" data-buy-doc-back>← Volver al pago</button></div>
+          <iframe class="buy-doc-frame" data-buy-doc-frame title="Las condiciones y la política de reembolso de Stride"></iframe>
+        </div>
         <div class="flex justify-between items-center mb-2">
             <h3 class="text-2xl font-black text-orange-400 uppercase tracking-tight">Comprar Stride</h3>
             <button onclick="toggleBuyModal()" class="text-zinc-500 hover:text-white transition-colors">
@@ -4867,7 +4897,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <label class="flex items-start gap-2.5 mb-4 cursor-pointer select-none group">
             <input id="buy-terms" type="checkbox" class="mt-0.5 shrink-0 w-4 h-4 accent-orange-500 cursor-pointer">
             <span class="text-[11px] text-zinc-400 leading-snug group-hover:text-zinc-300 transition-colors">
-                He leído los <a href="/terms.html#requirements" target="_blank" class="text-orange-400 hover:text-orange-300 underline">requisitos del sistema</a>, la <a href="/refund.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">política de reembolso</a> y los <a href="/terms.html" target="_blank" class="text-orange-400 hover:text-orange-300 underline">Términos del servicio</a>, y entiendo que <strong class="text-zinc-300">una vez active mi licencia la venta es definitiva</strong>. Doy mi consentimiento al acceso inmediato y renuncio a mi derecho de desistimiento de 14 días.
+                He leído los <a href="/terms.html#requirements" target="_blank" data-doc class="text-orange-400 hover:text-orange-300 underline">requisitos del sistema</a>, la <a href="/refund.html" target="_blank" data-doc class="text-orange-400 hover:text-orange-300 underline">política de reembolso</a> y los <a href="/terms.html" target="_blank" data-doc class="text-orange-400 hover:text-orange-300 underline">Términos del servicio</a>, y entiendo que <strong class="text-zinc-300">una vez active mi licencia la venta es definitiva</strong>. Doy mi consentimiento al acceso inmediato y renuncio a mi derecho de desistimiento de 14 días.
             </span>
         </label>
 
@@ -4877,9 +4907,76 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button id="buy-go" onclick="submitBuyForm()" class="btn-copper w-full justify-center py-3.5 rounded-xl text-xs uppercase tracking-widest">
             Ir al pago<span> &middot; <span class="sd-total">$99</span></span>
         </button>
+        <!-- Instagram's and Facebook's own browsers (Yossi 2026-11-10): no saved cards, autofill or passwords there, and a
+             trip out to PayPal or a bank's app often drops the page; phones inside those apps buy at about half the rate of
+             phones in a real browser (0.64% vs 1.26%, 30 days). Only there, the way out to the phone's own browser. -->
+        <p class="buy-iab" data-iab hidden><span data-iab-os="ios">Pagar es más fácil en Safari: toca ••• y luego «Abrir en el navegador».</span><span data-iab-os="android" hidden>Pagar es más fácil en Chrome: toca ⋮ y luego «Abrir en el navegador».</span></p>
         <p class="text-[11px] text-zinc-600 mt-3 text-center font-medium">Pago seguro con Paddle. Tarjetas, PayPal, Apple Pay y Google Pay. Los impuestos están incluidos en el precio mostrado.</p>
     </div>
 </div>
+<script>
+// ── The buy form's terms, and its line for the apps' own browsers (2026-11-10) ─────────────────────────────────────
+// Terms (Yossi: "open the Terms and refund links inside the form, not in a new tab"): any link marked data-doc opens its
+// page in the panel over the form's card, the email and the box kept underneath; from the wallet's line, with no form
+// open, the same panel opens in a window of its own. Escape or "Back to checkout" closes it and nothing else.
+(function () {
+  'use strict';
+  var doc = document.querySelector('[data-buy-doc]');
+  if (!doc) return;
+  var frame = doc.querySelector('[data-buy-doc-frame]'), home = doc.parentNode, pop = null;
+  function back() {
+    if (doc.hidden) return;
+    doc.hidden = true;
+    if (pop && pop.classList.contains('on')) { pop.classList.remove('on'); home.insertBefore(doc, home.firstChild); }
+  }
+  function open(href, inForm) {
+    if (inForm) {
+      if (doc.parentNode !== home) home.insertBefore(doc, home.firstChild);
+    } else {
+      if (!pop) {
+        pop = document.createElement('div');
+        pop.className = 'buy-doc-pop';
+        pop.addEventListener('click', function (ev) { if (ev.target === pop) back(); });
+        document.body.appendChild(pop);
+      }
+      pop.appendChild(doc);
+      pop.classList.add('on');
+    }
+    if (frame.getAttribute('src') !== href) frame.setAttribute('src', href);
+    doc.hidden = false;
+    try { doc.querySelector('[data-buy-doc-back]').focus(); } catch (e) {}
+    try { if (window.strideClarity) window.strideClarity('buy_terms_open'); } catch (e) {}
+  }
+  document.addEventListener('click', function (ev) {
+    var a = ev.target.closest && ev.target.closest('a[data-doc]');
+    if (!a) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    open(a.href, !!a.closest('#buy-modal'));
+  }, true);
+  doc.querySelector('[data-buy-doc-back]').addEventListener('click', back);
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && !doc.hidden) { ev.stopPropagation(); back(); }
+  }, true);
+})();
+// The apps' own browsers (Yossi 2026-11-10: "add the 'pay in Safari or Chrome' line in the in-app browsers"): Instagram
+// and Facebook name themselves in the user agent. The line under "Continue to checkout" shows only there, Safari's words
+// on an iPhone, Chrome's on Android, and Clarity tags the visit so the two can be compared.
+(function () {
+  'use strict';
+  var ua = navigator.userAgent || '';
+  if (!/Instagram|FBAN|FBAV|FB_IAB|FBIOS|FB4A/i.test(ua)) return;
+  var android = /Android/i.test(ua);
+  var lines = document.querySelectorAll('[data-iab]');
+  for (var i = 0; i < lines.length; i++) {
+    var ios = lines[i].querySelector('[data-iab-os="ios"]'), and = lines[i].querySelector('[data-iab-os="android"]');
+    if (ios) ios.hidden = android;
+    if (and) and.hidden = !android;
+    lines[i].hidden = false;
+  }
+  try { if (window.strideClarity) window.strideClarity('', { in_app: android ? 'android' : 'ios' }); } catch (e) {}
+})();
+</script>
 
 <!-- ===================== WAITLIST THANK-YOU OVERLAY ===================== -->
 <div id="thankyou-overlay" class="fixed inset-0 z-[2000] hidden flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
