@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Your half price | Stride</title>
-<meta name="description" content="Everything a Stride owner doesn't have yet, at half price, until the end of November.">
+<meta name="description" content="Black Friday for Stride owners: Tendril and the Stride Collection at half price, until the end of November.">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <style>
@@ -15,144 +15,217 @@
   --line:rgba(216,201,176,.11);
   --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
   --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e; --ok:#8fae86;
+  --pick:rgba(221,154,82,.62);
+  --shot:clamp(150px,31vh,300px); --disc:clamp(54px,9vh,82px);
 }
 *{box-sizing:border-box}
 html{color-scheme:dark}
 body{margin:0;min-height:100vh;display:flex;flex-direction:column;font-family:'Outfit',sans-serif;
-     background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6}
+     background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.5}
 [hidden]{display:none !important}
 a{color:inherit}
-h1{color:var(--ink);font-weight:900;letter-spacing:-.01em;margin:0;
-   font-size:clamp(32px,6vw,54px);line-height:1.06;text-wrap:balance}
+h1,h2{color:var(--ink);margin:0}
 h1:focus{outline:none}
-h2{color:var(--ink);font-weight:900;letter-spacing:-.005em;margin:0;font-size:clamp(24px,3.4vw,32px);line-height:1.12;text-wrap:balance}
 :focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
-.wrap{width:100%;max-width:980px;margin:0 auto;padding:0 22px}
+.wrap{width:100%;max-width:1060px;margin:0 auto;padding:0 22px}
 .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
-.kick{margin:0 0 10px;font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:800;color:var(--copper-lt)}
 .cu{color:var(--copper-lt)}
+.vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
-header{border-bottom:1px solid var(--line);background:rgba(20,19,16,.9);
-  backdrop-filter:blur(8px);position:sticky;top:0;z-index:20}
-.hrow{display:flex;align-items:center;justify-content:space-between;height:60px}
+header{border-bottom:1px solid var(--line);background:rgba(20,19,16,.9);backdrop-filter:blur(8px)}
+.hrow{display:flex;align-items:center;justify-content:space-between;height:56px}
 .logo{font-weight:900;font-size:17px;letter-spacing:-.02em;text-decoration:none;background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-footer{border-top:1px solid var(--line);padding:26px 0}
+footer{border-top:1px solid var(--line);padding:22px 0}
 footer a{color:var(--ink3);text-decoration:none}
 footer a:hover{color:var(--ink2)}
 
-main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
-.lead{margin:16px 0 0;max-width:600px;font-size:17px}
-.fine{margin:12px 0 0;font-size:13px;color:var(--ink3)}
+main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
+.fine{margin:10px 0 0;font-size:12.5px;line-height:1.5;color:var(--ink3)}
 .bad{color:#e6795f}
+.lead{margin:14px 0 0;max-width:600px;font-size:17px;line-height:1.6}
+.big{font-weight:900;letter-spacing:-.01em;font-size:clamp(30px,5vw,46px);line-height:1.08;text-wrap:balance}
+.acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.btn-flat{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:12px;padding:14px 24px;font:inherit;
+  font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;white-space:nowrap;background:var(--raise);color:var(--ink);transition:background .15s}
+.btn-flat:hover{background:#2e2920}
 
-/* The ad's way in (2026-11-08): the address Stride was bought with */
-.ask{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px;max-width:560px}
-.ask input{flex:1 1 260px;min-width:0;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--raise);
-  color:var(--ink);font:inherit;font-size:16px}
-.ask input::placeholder{color:var(--ink3)}
-.ask input:focus{outline:none;border-color:rgba(221,154,82,.6)}
-.ask .btn-copper{flex:0 0 auto}
-@media (max-width:520px){ .ask .btn-copper{flex:1 1 100%} }
-
-/* Waiting */
+/* Waiting for a mailed link's price */
 .dots{display:flex;gap:8px;margin-top:18px}
 .dots i{width:9px;height:9px;border-radius:50%;background:var(--copper-lt);opacity:.25;animation:blink 1.2s infinite}
 .dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
 @keyframes blink{50%{opacity:1}}
-@media (prefers-reduced-motion:reduce){.dots i{animation:none;opacity:.6}}
 
-.acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
-.btn-copper,.btn-flat{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;
-  padding:15px 26px;font:inherit;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;white-space:nowrap}
-.btn-copper{background:linear-gradient(180deg,var(--ember),var(--copper));color:#1b1206;transition:filter .15s}
-.btn-copper:hover{filter:brightness(1.06)}
-.btn-copper[disabled]{opacity:.55;cursor:default;filter:none}
-.btn-copper[aria-busy="true"]{opacity:.7;pointer-events:none}
-.btn-flat{background:var(--raise);color:var(--ink);transition:background .15s}
-.btn-flat:hover{background:#2e2920}
+/* One line on top: what this is */
+.top{margin-bottom:16px}
+.kick{margin:0 0 6px;font-size:11px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+#offer h1{font-weight:900;letter-spacing:-.01em;font-size:clamp(23px,2.6vw,30px);line-height:1.12}
 
-/* One block per product, separated by a hairline */
-.blk{margin-top:44px;padding-top:40px;border-top:1px solid var(--line)}
+/* The two, side by side */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{position:relative;display:flex;flex-direction:column;min-width:0;border-radius:18px;background:var(--card);border:1px solid var(--line);
+  overflow:hidden;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:border-color .2s,box-shadow .2s}
+.card.on{border-color:var(--pick);box-shadow:0 0 0 1px rgba(221,154,82,.2),0 24px 46px -30px rgba(229,138,46,.6)}
+.card.owned{cursor:default}
+.shot{position:relative;flex:none;height:var(--shot);overflow:hidden;background:#0e0d0b;border-bottom:1px solid var(--line)}
+.shot > img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 0}
+.shot > img,.shot > .discs{transition:filter .2s,opacity .2s}
+.card:not(.on) .shot > img,.card:not(.on) .shot > .discs{filter:grayscale(.85);opacity:.42}
+.card.owned .shot > img,.card.owned .shot > .discs{opacity:.3}
+.card:not(.on):not(.owned) .nm{opacity:.62}
 
-/* Tendril: the showcase beside the words */
-.tdr{display:grid;gap:26px;align-items:start}
-@media (min-width:820px){ .tdr{grid-template-columns:1.15fr 1fr;gap:34px} }
-.film{position:relative;border-radius:14px;overflow:hidden;background:#0e0d0b;border:1px solid var(--line);aspect-ratio:16/9}
-.film video{display:block;width:100%;height:100%;object-fit:cover}
-.tdr .pp{margin:10px 0 0;font-size:22px;font-weight:900;color:var(--ink)}
-.pp s,.tot s{color:var(--ink3);font-weight:700;margin-right:8px;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.85)}
-.body{margin:14px 0 0;font-size:16px;line-height:1.7}
-.watch{margin:14px 0 0;font-size:15px;line-height:2}
-.watch a{color:var(--copper-lt);font-weight:800;text-decoration:none;margin-right:18px;white-space:nowrap}
-.watch a:hover{text-decoration:underline;text-underline-offset:3px}
-.tgl{margin-top:18px;padding:12px 18px;border-radius:12px;border:1px solid rgba(221,154,82,.55);background:rgba(198,113,43,.12);
-  color:var(--copper-lt);font:inherit;font-size:13px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
-.tgl[aria-checked="false"]{border-color:var(--line);background:var(--raise);color:var(--ink2)}
-.tdr.off .film,.tdr.off .tdr-b > :not(.tgl){opacity:.55}
+/* The check in the corner: on, or empty */
+.chk{position:absolute;top:12px;left:12px;z-index:2;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:rgba(14,13,11,.72);box-shadow:inset 0 0 0 2px rgba(236,228,214,.45);color:transparent;transition:background .2s,box-shadow .2s}
+.chk svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.card.on .chk{background:linear-gradient(180deg,var(--ember),var(--copper));box-shadow:0 4px 12px rgba(0,0,0,.45);color:#1b1206}
+.card.owned .chk{display:none}
 
-/* The Collection: the playground, its multiplication, the parts */
-.eq{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:center;margin-top:22px;padding:18px 22px;
-  border-radius:16px;background:#120f0b;border:1px solid var(--line);max-width:640px}
-.eq .op{font-size:24px;font-weight:800;color:var(--copper-lt);width:18px;text-align:center}
-.eq .t{display:flex;align-items:baseline;gap:14px;min-width:0}
-.eq .t b{font-size:clamp(28px,4vw,36px);line-height:1.15;font-weight:900;color:var(--ink);white-space:nowrap}
-.eq .t span{font-size:14.5px;line-height:1.4;color:var(--ink2)}
-.eq .t.inf b{color:var(--copper-lt)}
-@media (max-width:520px){ .eq{padding:14px 16px;gap:2px 12px} .eq .t{gap:10px} .eq .t span{font-size:13.5px} }
-
-.pcs{display:grid;grid-template-columns:repeat(var(--cols,5),minmax(0,1fr));gap:22px 12px;margin-top:30px}
-.prow{position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;user-select:none;text-align:center;min-width:0}
-.pc-disc{position:relative;z-index:0;flex:none;width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
+/* The Collection's shot: the synths it plays */
+.discs{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:0 16px;
+  background:radial-gradient(ellipse at 50% 46%,rgba(198,113,43,.2),transparent 62%)}
+.dl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;width:100%;max-width:470px}
+.dk{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0}
+.dk b{margin-top:10px;font-size:20px;line-height:1;font-weight:900;color:var(--ink)}
+.dk .dkl{margin-top:4px;font-size:11px;line-height:1.2;color:var(--ink2)}
+.dk.own .pc-disc{opacity:.45;filter:grayscale(.6)}
+.dk.own .dkl{color:var(--ok)}
+.pc-disc{position:relative;flex:none;width:min(var(--disc),calc(100% - 10px));height:auto;aspect-ratio:1/1;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
   background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.22),transparent 42%),radial-gradient(circle at 72% 80%,rgba(0,0,0,.6),transparent 56%),
              conic-gradient(from 200deg,var(--a),var(--b) 30%,var(--a) 55%,var(--b) 80%,var(--a));
-  box-shadow:0 0 0 5px #24201a,0 0 0 6px rgba(216,201,176,.16),0 18px 30px -16px rgba(0,0,0,.9)}
+  box-shadow:0 0 0 4px #24201a,0 0 0 5px rgba(216,201,176,.16),0 16px 26px -14px rgba(0,0,0,.9)}
 .pc-disc img{position:relative;max-width:72%;max-height:46%;width:auto;height:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.65))}
-.pc-disc img.wide{max-width:88%}
+.pc-disc img.wide{max-width:86%}
 .pc-disc.art img{max-width:none;max-height:none;width:100%;height:100%;object-fit:cover;filter:none}
-.pc-disc .w{position:relative;font-size:9px;font-weight:800;letter-spacing:.32em;margin-left:.32em;color:var(--copper-lt);text-shadow:0 3px 10px rgba(0,0,0,.6)}
-.hear{position:absolute;top:62px;left:calc(50% + 22px);z-index:2;width:34px;height:34px;border-radius:50%;border:0;padding:0;cursor:pointer;
-  background:linear-gradient(180deg,var(--ember),var(--copper));color:#1b1206;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 0 3px #1b1813,0 6px 14px rgba(0,0,0,.5)}
-.hear svg{width:13px;height:13px;fill:currentColor}
-.hear[aria-pressed="true"]{background:var(--ink);color:#1b1206}
-.pc-b{position:relative;z-index:1;align-self:stretch;flex:1;display:flex;flex-direction:column;margin-top:-26px;padding:34px 10px 14px;border-radius:14px;
-  background:var(--card);border:1px solid var(--line)}
-.prow.on .pc-b{border-color:rgba(221,154,82,.55);box-shadow:0 0 0 1px rgba(221,154,82,.2)}
-.prow .nm b{display:block;font-size:14px;line-height:1.15;color:var(--ink);text-transform:uppercase;letter-spacing:.03em}
-.prow .nm span{display:block;margin-top:4px;font-size:11.5px;line-height:1.35;color:var(--ink3)}
-.prow .pc-cat{margin:6px 0 0;font-size:11px;line-height:1.35;color:var(--ink2)}
-.prow .pp{margin-top:9px;font-size:15px;font-weight:900;color:var(--ink);white-space:nowrap}
-.prow .pp s{font-size:12px;margin-right:5px}
-.prow .pc-st{margin-top:auto;padding-top:10px;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--copper-lt)}
-.prow:not(.on):not(.owned) .pc-disc{filter:grayscale(.85);opacity:.55}
-.prow:not(.on):not(.owned) .pc-b > :not(.pc-st){opacity:.6}
-.prow.owned{cursor:default}
-.prow.owned .pp{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ok)}
-.prow:focus-visible{outline:none}
-.prow:focus-visible .pc-b{outline:2px solid var(--copper-lt);outline-offset:2px}
-@media (max-width:639px){
-  .pcs{grid-template-columns:repeat(2,minmax(0,1fr));gap:26px 12px}
-  .pcs > .prow:last-child:nth-child(odd){grid-column:1 / -1;justify-self:center;width:calc(50% - 6px)}
+.pc-disc .w{position:relative;font-size:8px;font-weight:800;letter-spacing:.26em;margin-left:.26em;color:var(--copper-lt);text-shadow:0 3px 10px rgba(0,0,0,.6)}
+
+/* Hear it */
+.hear{position:absolute;right:12px;top:12px;z-index:2;display:flex;align-items:center;gap:8px;height:36px;padding:0 14px 0 7px;border:0;border-radius:999px;
+  background:rgba(14,13,11,.8);backdrop-filter:blur(6px);color:var(--ink);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+.hear i{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--ember),var(--copper));color:#1b1206}
+.hear svg{width:10px;height:10px;fill:currentColor}
+.hear:hover{background:rgba(30,27,22,.92)}
+
+/* Name, price, Select / Remove */
+.info{display:flex;flex-direction:column;gap:12px;flex:1;padding:16px 20px 18px}
+.nm h2{font-size:22px;font-weight:900;letter-spacing:-.005em;line-height:1.15}
+.nm p{margin:4px 0 0;font-size:14.5px;line-height:1.45;color:var(--ink2)}
+.row{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pp{margin:0;display:flex;align-items:baseline;gap:9px;white-space:nowrap;min-height:30px}
+.pp s,.tot s{color:var(--ink3);font-weight:700;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.85)}
+.pp s{font-size:15px}
+.pp b{font-size:26px;line-height:1.1;font-weight:900;color:var(--ink)}
+.pp .yours{font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--ok)}
+.sk{display:inline-block;width:110px;height:24px;border-radius:7px;background:linear-gradient(90deg,#221e18,#2c271f,#221e18);background-size:200% 100%;animation:sk 1.2s linear infinite}
+@keyframes sk{to{background-position:-200% 0}}
+.sel{flex:none;height:38px;padding:0 18px;border:0;border-radius:11px;font:inherit;font-size:13.5px;font-weight:800;cursor:pointer;
+  background:var(--raise);color:var(--ink2);transition:background .15s,color .15s}
+.sel:hover{background:#2e2920;color:var(--ink)}
+.card:not(.on) .sel{background:rgba(198,113,43,.2);color:var(--copper-lt)}
+.card:not(.on) .sel:hover{background:rgba(198,113,43,.3)}
+
+/* The total and the button, right under them */
+.buy{margin-top:16px;padding:16px 22px;border-radius:18px;background:var(--bg2);border:1px solid var(--line)}
+.buy-row{display:flex;align-items:center;justify-content:space-between;gap:14px 26px}
+.tot{display:flex;align-items:center;gap:14px;min-width:0}
+.tot .tl{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3)}
+.tot .fig{display:flex;align-items:baseline;gap:12px;white-space:nowrap}
+.tot s{font-size:20px}
+.tot b{font-size:40px;line-height:1;font-weight:900;color:var(--ink);letter-spacing:-.01em}
+.tot b.bump{animation:bump .32s ease-out}
+@keyframes bump{40%{transform:scale(1.06)}}
+.bft{display:inline-block;flex:none;width:88px;line-height:0}
+.bft svg{display:block;width:100%;height:auto;overflow:visible;pointer-events:none;transform:rotate(-8deg);
+  filter:drop-shadow(0 8px 10px rgba(0,0,0,.45)) drop-shadow(0 2px 2px rgba(0,0,0,.35));animation:bfTicketPulse 2.4s ease-in-out infinite}
+@keyframes bfTicketPulse{0%,100%{scale:1}50%{scale:1.05}}
+.go{flex:none;min-width:0;display:flex;justify-content:flex-end}
+.cta{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:330px;height:62px;padding:0 30px;
+  border:0;border-radius:15px;font:inherit;font-size:18px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;cursor:pointer;color:#1b1206;
+  background:linear-gradient(180deg,#f3a752,var(--ember) 48%,var(--copper));
+  box-shadow:0 18px 36px -16px rgba(229,138,46,.75),inset 0 1px 0 rgba(255,255,255,.3);transition:filter .15s,transform .15s}
+.cta:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.cta::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:40%;transform:skewX(-20deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.32),transparent);animation:sheen 4.2s ease-in-out 1.2s infinite}
+@keyframes sheen{0%{left:-60%}28%,100%{left:130%}}
+.cta[disabled]{opacity:.5;cursor:default;filter:grayscale(.4);transform:none;box-shadow:none}
+.cta[disabled]::after{display:none}
+.cta[aria-busy="true"]{opacity:.75;pointer-events:none}
+.cta .dot{opacity:.55}
+.cta svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+
+/* The email, asked only when someone without a mailed link presses the button */
+.ask{display:flex;flex-direction:column;gap:8px;width:420px;max-width:100%}
+.ask-l{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--copper-lt)}
+.ask-r{display:flex;gap:10px}
+.ask input{flex:1 1 0;width:0;min-width:0;height:56px;padding:0 16px;border-radius:13px;border:1px solid rgba(221,154,82,.4);background:var(--raise);
+  color:var(--ink);font:inherit;font-size:16px}
+.ask input::placeholder{color:var(--ink3)}
+.ask input:focus{outline:none;border-color:rgba(221,154,82,.8)}
+.ask .cta{flex:none;width:auto;min-width:0;height:56px;padding:0 22px;font-size:15px}
+.msgs .fine{margin-top:8px}
+.note{color:var(--copper-lt);font-weight:700}
+.legal{margin-top:12px}
+.pay{margin-top:12px}
+
+@media (prefers-reduced-motion:reduce){
+  .dots i,.sk,.bft svg,.cta::after,.tot b.bump{animation:none}
+  .dots i{opacity:.6}
 }
 
-/* The total, always in reach */
-.buy{position:sticky;bottom:0;z-index:15;margin:44px -22px 0;padding:16px 22px calc(16px + env(safe-area-inset-bottom));
-  background:rgba(20,19,16,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line)}
-.buy-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.tot{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.tot .was-l{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
-.tot s{font-size:20px}
-.tot b{font-size:30px;font-weight:900;color:var(--ink);line-height:1}
-.tot .half{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--copper-lt)}
-.buy .fine{margin-top:8px}
-@media (max-width:520px){
-  .buy{margin-top:36px;padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
-  .buy-row{flex-wrap:nowrap;gap:12px}
-  .buy-row .btn-copper{flex:0 1 auto;padding:13px 18px;font-size:14.5px}
-  .tot{gap:8px;flex-wrap:nowrap}
-  .tot .was-l,.tot .half,.buy .pay{display:none}
-  .tot s{font-size:15px;margin-right:0}
-  .tot b{font-size:24px}
+/* Tablets: the button under the total */
+@media (max-width:900px){
+  .buy-row{flex-wrap:wrap}
+  .go{flex:1 1 100%}
+  .cta{width:100%;min-width:0}
+  .ask{width:100%}
+}
+/* Phones: one above the other, each card's name and price on one line, the total and the button always in reach */
+@media (max-width:759px){
+  :root{--shot:clamp(84px,13.2vh,128px);--disc:clamp(38px,6vh,50px)}
+  .wrap{padding:0 16px}
+  .hrow{height:46px}
+  main.wrap{padding-top:12px;padding-bottom:20px}
+  .top{margin-bottom:10px}
+  .kick{font-size:9.5px;letter-spacing:.2em;margin-bottom:3px}
+  #offer h1{font-size:20px}
+  .duo{grid-template-columns:1fr;gap:8px}
+  .card{border-radius:16px}
+  .chk{top:8px;left:8px;width:26px;height:26px}
+  .chk svg{width:13px;height:13px}
+  .hear{right:8px;top:8px;width:30px;height:30px;padding:0;justify-content:center;border-radius:50%;background:none;backdrop-filter:none}
+  .hear i{width:30px;height:30px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+  .hear .ht{display:none}
+  .discs{padding:0 44px}
+  .dl{gap:4px}
+  .pc-disc .w{font-size:6.5px;letter-spacing:.14em;margin-left:.14em}
+  .dk b{margin-top:5px;font-size:13.5px}
+  .dk .dkl{display:none}
+  .xl{display:none}
+  .info{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3px 12px;padding:10px 14px 12px}
+  .nm,.row{display:contents}
+  .nm h2{grid-column:1;grid-row:1;font-size:18px}
+  .pp{grid-column:2;grid-row:1;justify-self:end;min-height:0;gap:7px}
+  .nm p{grid-column:1;grid-row:2;margin:0;font-size:12.5px;line-height:1.4}
+  .sel{grid-column:2;grid-row:2;justify-self:end;height:34px;padding:0 15px;font-size:13px}
+  .pp s{font-size:13px}
+  .pp b{font-size:20px}
+  .buy{position:sticky;bottom:0;z-index:15;margin:10px -16px 0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-radius:0;border-width:1px 0 0;
+    background:rgba(20,19,16,.96);backdrop-filter:blur(10px)}
+  .buy-row{gap:8px}
+  .tot{gap:10px;width:100%}
+  .tot .tl{display:none}
+  .tot s{font-size:15px}
+  .tot b{font-size:28px}
+  .bft{width:58px;margin-left:auto}
+  .cta{height:52px;font-size:16px;letter-spacing:.05em;padding:0 18px}
+  .ask .cta{height:50px}
+  .ask input{height:50px}
+  .legal{margin-top:7px;font-size:11px;line-height:1.4}
+  .pay{font-size:12px}
+}
+@media (max-width:380px){
+  .nm h2{font-size:16.5px}
+  .pp b{font-size:19px}
+  .ask .cta{padding:0 16px}
 }
 </style>
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
@@ -232,86 +305,96 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
 
 <main class="wrap">
 
-  <section id="wait">
+  <section id="wait" hidden>
     <p class="silk">Opening your price</p>
     <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
   </section>
 
   <section id="msg" hidden>
-    <h1 tabindex="-1" data-mh></h1>
+    <h1 class="big" tabindex="-1" data-mh></h1>
     <p class="lead" data-mp></p>
     <div class="acts"><a class="btn-flat" href="/">Go to stridehub.io</a></div>
   </section>
 
-  <section id="find" hidden>
-    <p class="silk">Stride owners &middot; until the end of November</p>
-    <h1 tabindex="-1">Tendril + the Collection, <span class="cu">half price.</span></h1>
-    <p class="lead">Only for Stride owners. Enter the email you bought Stride with to see your price, in your currency.</p>
-    <form class="ask" data-find novalidate>
-      <input type="email" name="email" autocomplete="email" inputmode="email" placeholder="you@example.com" aria-label="The email you bought Stride with" required>
-      <button type="submit" class="btn-copper">Show my price</button>
-    </form>
-    <p class="fine bad" data-fmsg="miss" hidden>We couldn't find a Stride purchase with that email. Try the address on your Stride receipt, or write to <a href="mailto:home@stridehub.io">home@stridehub.io</a>.</p>
-    <p class="fine bad" data-fmsg="invalid" hidden>That email doesn't look right. Please check it.</p>
-    <p class="fine bad" data-fmsg="limit" hidden>Too many tries from this network. Please wait a few minutes and try again.</p>
-    <p class="fine bad" data-fmsg="down" hidden>We couldn't check right now. Please try again in a minute.</p>
-    <p class="fine">Anything you already own stays out of your price.</p>
-  </section>
-
   <section id="offer" hidden>
-    <p class="silk">Stride owners &middot; until the end of November</p>
-    <h1 tabindex="-1">Everything you don't have yet, <span class="cu">half price.</span></h1>
-    <p class="lead">Your price, in your currency. Take out anything you don't want and the total follows.</p>
+    <div class="top">
+      <p class="kick">Black Friday &middot; until the end of November</p>
+      <h1 tabindex="-1"><span class="cu">Half price</span> for Stride owners.</h1>
+    </div>
 
-    <article class="blk tdr" data-tendril hidden>
-      <div class="film">
-        <video controls playsinline preload="none" poster="/media/tendril/showcase/poster.webp" width="1920" height="1080"
-               aria-label="Tendril showcase: sounds played inside Stride">
-          <source src="/media/tendril/showcase/tendril-examples-720.mp4" type="video/mp4">
-        </video>
-      </div>
-      <div class="tdr-b">
-        <p class="kick">Tendril</p>
-        <h2>A synth built to be explored with Stride.</h2>
-        <p class="pp" data-tprice></p>
-        <p class="body">Three engines, ten knobs that reshape the harmonics at the source, and a sequencer row for each engine, so three patterns play off each other. Map it in Stride, lock what works and regenerate the rest. 22 StrideChains come with it.</p>
-        <p class="watch">&#9654;&nbsp;<a href="https://youtu.be/XraEBnkyrc0" target="_blank" rel="noopener">Watch the showcase</a>&#9654;&nbsp;<a href="https://youtu.be/NcxIM_lNBDw" target="_blank" rel="noopener">Tendril Tutorial #1</a></p>
-        <button type="button" class="tgl" role="switch" aria-checked="true" data-ttgl>&#10003; In your cart</button>
-      </div>
-    </article>
+    <div class="duo">
+      <article class="card on" data-card="tendril">
+        <div class="shot">
+          <img src="/media/tendril/tendril-face-960.webp" width="960" height="696" alt="Tendril, the synth" decoding="async">
+          <span class="chk" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3.5 8.4l3 3 6-6.6"/></svg></span>
+          <button type="button" class="hear" data-hear="tendril" aria-pressed="false" aria-label="Hear Tendril"><i></i><span class="ht">Hear it</span></button>
+        </div>
+        <div class="info">
+          <div class="nm">
+            <h2>Tendril</h2>
+            <p>Three engines, built to be explored with Stride.<span class="xl"> 22 StrideChains come with it.</span></p>
+          </div>
+          <div class="row">
+            <p class="pp" data-pp></p>
+            <button type="button" class="sel" data-sel>Remove</button>
+          </div>
+        </div>
+      </article>
 
-    <section class="blk" data-coll hidden>
-      <p class="kick" data-ckick>The Stride Collection</p>
-      <h2>A sound design playground you'll never reach the bottom of.</h2>
-      <div class="eq" role="img" data-eq>
-        <span class="op"></span><div class="t"><b data-eqn>120</b><span>StrideChains for Serum 2, Vital, Diva and Tendril</span></div>
-        <span class="op">&times;</span><div class="t"><b>5</b><span>states in every chain, <span data-eqs>600</span> in all</span></div>
-        <span class="op">&times;</span><div class="t"><b>Stride</b><span>everything it does: Motions, Shapes, Mutate, Shuffle, your own drawing, locks</span></div>
-        <span class="op">=</span><div class="t inf"><b>&infin;</b><span>sound design, wherever you take it</span></div>
-      </div>
-      <p class="body">Every chain comes mapped for Stride: lanes set, ranges chosen, the core knobs locked. Each of its five states is a different place to start, and from every one of them Stride can take the sound wherever you want. 66 of the chains are built on Stride original wavetables, and the Serum 2 and Vital packs bring all 111 of them for your own patches too.</p>
-      <p class="body" data-own-sounds hidden>Your sounds and racks are already yours, so your price covers only the packs.</p>
-      <div class="pcs" data-picks></div>
-      <p class="fine">Synths not included: each pack needs your own copy of its synth. The chains open in Stride, and the racks need Ableton Live. Only have some of those synths? Keep just the packs you can play.</p>
-    </section>
+      <article class="card on" data-card="coll">
+        <div class="shot">
+          <div class="discs" role="img" aria-label="StrideChains for Serum 2, Vital, Diva and Tendril, and the Sounds &amp; Racks"><div class="dl" data-discs></div></div>
+          <span class="chk" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3.5 8.4l3 3 6-6.6"/></svg></span>
+          <button type="button" class="hear" data-hear="coll" aria-pressed="false" aria-label="Hear the Stride Collection"><i></i><span class="ht">Hear it</span></button>
+        </div>
+        <div class="info">
+          <div class="nm">
+            <h2 data-cname>The Stride Collection</h2>
+            <p data-csub>120 StrideChains, 111 Stride wavetables, 250+ sounds<span class="xl"> and 15 Ableton racks</span>.</p>
+          </div>
+          <div class="row">
+            <p class="pp" data-pp></p>
+            <button type="button" class="sel" data-sel>Remove</button>
+          </div>
+        </div>
+      </article>
+    </div>
 
     <div class="buy" data-buybox>
       <div class="buy-row">
-        <div class="tot" aria-live="polite">
-          <span class="was-l" data-wasl hidden>Full price</span><s data-was></s><b data-now></b><span class="half" data-half hidden>Half price</span>
+        <div class="tot">
+          <span class="tl">Total</span>
+          <span class="fig" aria-live="polite"><s data-was hidden></s><b data-now></b></span>
+          <span class="bft" role="img" aria-label="Black Friday sale: 50% off"><svg viewBox="0 0 360 232" aria-hidden="true" focusable="false"><defs><linearGradient id="bftow" x1="0" y1="0" x2="0.25" y2="1"><stop offset="0" stop-color="#f7b25c"/><stop offset=".55" stop-color="#ec9a45"/><stop offset="1" stop-color="#d9832f"/></linearGradient></defs><path d="M22,0 H338 Q360,0 360,22 V89 A27,27 0 0 0 360,143 V210 Q360,232 338,232 H22 Q0,232 0,210 V143 A27,27 0 0 0 0,89 V22 Q0,0 22,0 Z" fill="url(#bftow)"/><path d="M26,13 H334 Q347,13 347,26 V98 A18,18 0 0 0 347,134 V206 Q347,219 334,219 H26 Q13,219 13,206 V134 A18,18 0 0 0 13,98 V26 Q13,13 26,13 Z" fill="none" stroke="#a85c19" stroke-width="3.2" opacity=".85"/><text x="180" y="76" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="47" fill="#1d130a" letter-spacing="-0.4">BLACK FRIDAY</text><line x1="92" y1="97" x2="140" y2="97" stroke="#1d130a" stroke-width="3.4" stroke-linecap="round"/><text x="180" y="106" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="800" font-size="27" fill="#1d130a" letter-spacing="2">SALE</text><line x1="220" y1="97" x2="268" y2="97" stroke="#1d130a" stroke-width="3.4" stroke-linecap="round"/><text x="180" y="203" text-anchor="middle" font-family="Outfit,system-ui,sans-serif" font-weight="900" font-size="112" fill="#1d130a" letter-spacing="-3">50%</text></svg></span>
         </div>
-        <button type="button" class="btn-copper" data-buy>Pick something to add</button>
+        <div class="go">
+          <button type="button" class="cta" data-buy><span data-buyl>Get both</span><span class="dot" data-buyd>&middot;</span><span data-buyp></span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5.5l4.5 4.5-4.5 4.5"/></svg></button>
+          <form class="ask" data-ask novalidate hidden>
+            <label class="ask-l" for="ask-email">The email you bought Stride with</label>
+            <div class="ask-r">
+              <input id="ask-email" type="email" name="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required>
+              <button type="submit" class="cta">Continue<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5.5l4.5 4.5-4.5 4.5"/></svg></button>
+            </div>
+          </form>
+        </div>
       </div>
-      <p class="fine" data-hint hidden>The whole Collection costs less than the parts you kept, so you get all of it.</p>
-      <p class="fine bad" data-err hidden></p>
-      <p class="fine pay">Checkout by Paddle, in your currency. Keys and downloads arrive by mail.</p>
-      <p class="fine">The Collection is an instant download: by buying you ask for the files right away and agree that your 14-day right to cancel ends once the download starts. <a href="/refund.html">Refund policy</a></p>
+      <div class="msgs">
+        <p class="fine" data-fmsg="hint" hidden>Your owner price opens with it, and your keys and downloads go there.</p>
+        <p class="fine bad" data-fmsg="miss" hidden>We couldn't find a Stride purchase with that email. Try the address on your Stride receipt, or write to <a href="mailto:home@stridehub.io">home@stridehub.io</a>.</p>
+        <p class="fine bad" data-fmsg="invalid" hidden>That email doesn't look right. Please check it.</p>
+        <p class="fine bad" data-fmsg="limit" hidden>Too many tries from this network. Please wait a few minutes and try again.</p>
+        <p class="fine bad" data-fmsg="down" hidden>We couldn't check right now. Please try again in a minute.</p>
+        <p class="fine note" data-note hidden></p>
+        <p class="fine bad" data-err hidden></p>
+      </div>
+      <p class="fine legal">The Collection is an instant download: by buying you ask for the files right away and agree that your 14-day right to cancel ends once the download starts. <a href="/refund.html">Refund policy</a></p>
     </div>
+    <p class="fine pay">Checkout by Paddle, in your currency. Keys and downloads arrive by mail. Synths not included: each pack needs its own synth, and the racks need Ableton Live.</p>
   </section>
 
   <section id="done" hidden>
     <p class="silk">Paid</p>
-    <h1 tabindex="-1">Thank you. It's on its way.</h1>
+    <h1 class="big" tabindex="-1">Thank you. It's on its way.</h1>
     <p class="lead">Everything you just got is on its way to your inbox: Tendril's key and installers, and a download link for every pack. Load a chain in Stride and start exploring.</p>
     <div class="acts"><button type="button" class="btn-flat" data-more hidden>See what's left at half price</button><a class="btn-flat" href="/">Go to stridehub.io</a></div>
   </section>
@@ -323,22 +406,30 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
 <script>
 (function () {
   'use strict';
-  // The owners' half price (Yossi 2026-11-07). The mail's link carries ?k=<token>; generate_midi
-  // (owners_offer, owners_checkout) prices it in the visitor's own currency and opens ONE checkout.
+  // The owners' half price (Yossi 2026-11-07), on ONE screen since 2026-11-10 ("give me a shot of Tendril and shots of
+  // the Collection with the plugins side by side, with SELECT and REMOVE, and that's it; a responsive price under them
+  // with a sexy CTA"). Both start in the cart. The mail's link carries ?k=<token> and generate_midi (owners_offer,
+  // owners_checkout) prices it in the visitor's own currency and opens ONE checkout. Anyone who comes without a token
+  // (the Meta ad STRIDE PURCHASERS, a shared link) sees Paddle's own prices for the same two at half, and is asked for
+  // the address Stride was bought with only when they press the button (owners_find hands back their token).
   // No tracker on this page: the sale is reported by the server once Paddle confirms it.
   var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
   var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
-  var REELS = { serum: '/assets/packs/reel-serum.mp3', vital: '/assets/packs/reel-vital.mp3',
-                diva: '/assets/packs/reel-diva.mp3', tendril: '/assets/packs/reel-tendril.mp3',
-                sounds: '/assets/packs/collection-teaser.mp3' };
+  // A Stride owner who has neither: Tendril's one price, and the whole Stride Collection (the cover owners_checkout
+  // charges when nothing of it is owned). Half of what Paddle quotes this visitor, rounded half up (_owners_cut).
+  var PRICE = { tendril: 'pri_01m5hgws7pfwwg4yevje6ajqrp', whole: 'pri_01m6nnycexzy151nynszqdn87n' };
+  var USD = { tendril: 4900, whole: 6900 };   // Paddle's base prices, shown only if its preview never answers
+  var REELS = { tendril: '/assets/packs/reel-tendril.mp3', coll: '/assets/packs/collection-teaser.mp3' };
   // Each part's disc, as on /collection/ and /post2.
   var LOOK = {
-    serum:   { cat: '+ all 111 Stride wavetables', logo: '/media/synths/serum-2.webp', wide: true, a: '#2f8fb0', b: '#0c171d' },
-    vital:   { cat: '+ all 111 Stride wavetables', logo: '/media/synths/vital.webp', a: '#7b5cd6', b: '#130f21' },
-    diva:    { cat: 'Analog modelling', logo: '/media/synths/diva.webp', a: '#a4763f', b: '#15110d' },
-    tendril: { cat: 'Three engines', word: 'TENDRIL', a: '#c6712b', b: '#1a0f07' },
-    sounds:  { cat: '250+ sounds, 15 Ableton Racks', art: '/media/synths/sounds-racks.webp' }
+    serum:   { logo: '/media/synths/serum-2.webp', wide: true, a: '#2f8fb0', b: '#0c171d' },
+    vital:   { logo: '/media/synths/vital.webp', a: '#7b5cd6', b: '#130f21' },
+    diva:    { logo: '/media/synths/diva.webp', a: '#a4763f', b: '#15110d' },
+    tendril: { word: 'TENDRIL', a: '#c6712b', b: '#1a0f07' },
+    sounds:  { art: '/media/synths/sounds-racks.webp' }
   };
+  var PACKS = [{ key: 'serum', label: 'Serum 2', n: 40 }, { key: 'vital', label: 'Vital', n: 40 },
+               { key: 'diva', label: 'Diva', n: 20 }, { key: 'tendril', label: 'Tendril', n: 20 }];
   var SAY = {
     invalid: ["This link doesn't open an offer", 'Open the whole link from the mail. Still stuck? Reply to the mail and Joe will sort it out.'],
     expired: ['This offer has ended', 'The half price ran until the end of November. Thanks for having a look.'],
@@ -347,6 +438,7 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
   };
 
   function q(s) { return document.querySelector(s); }
+  function qa(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function money(amount, currency) {
@@ -359,6 +451,7 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
         minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: whole ? 0 : digits }).format(major);
     } catch (e) { return currency + ' ' + major.toFixed(digits); }
   }
+  function half(minor) { return Math.floor((Number(minor) * 50 + 50) / 100); }
   function amt(x) { return Number(((x || {}).offer_price || {}).amount) || 0; }
   function lst(x) { return Number(((x || {}).list_price || {}).amount) || 0; }
   function cur(x) { return ((x || {}).offer_price || {}).currency || ''; }
@@ -371,7 +464,7 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
   try {
     var here = new URL(window.location.href);
     K = (here.searchParams.get('k') || '').trim().toLowerCase();
-    // The Meta ad (STRIDE PURCHASERS, 2026-11-08) links here with utm_source=meta and no token: the owner types the
+    // The Meta ad (STRIDE PURCHASERS, 2026-11-08) links here with utm_source=meta and no token: the owner gives the
     // address they bought Stride with, owners_find hands back their token, and the order says it came from the ad.
     VIA = (here.searchParams.get('utm_source') || '').toLowerCase() === 'meta' ? 'ad' : '';
     // The ad's click (2026-11-09): Meta adds fbclid to every ad link. The lookup and the checkout send it, with when
@@ -413,6 +506,7 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
       .then(function (r) { return r.json(); });
   }
   function stage(name) {
+    if (!K) return;
     try {
       fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
                    body: JSON.stringify({ action: 'owners_stage', stage: name, k: K }) }).catch(function () {});
@@ -420,9 +514,9 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
   }
 
   function show(id) {
-    ['wait', 'msg', 'find', 'offer', 'done'].forEach(function (s) { q('#' + s).hidden = s !== id; });
+    ['wait', 'msg', 'offer', 'done'].forEach(function (s) { q('#' + s).hidden = s !== id; });
     var h = q('#' + id + ' h1');
-    if (h && id !== 'wait') { try { h.focus({ preventScroll: true }); } catch (e) {} }
+    if (h && id !== 'wait' && id !== 'offer') { try { h.focus({ preventScroll: true }); } catch (e) {} }
   }
   function message(status) {
     var say = SAY[status] || SAY.unavailable;
@@ -432,50 +526,78 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
   }
 
   // ── What is on offer, and what is in the cart ────────────────────────────────
-  var T = null;      // Tendril: { now, was, currency, on }
-  var C = null;      // the Collection's prices: { all, whole, alone, withPacks, soundsOwned }
-  var picks = [];    // the Collection's parts: { key, label, n, kind: pack|sounds, owned, on, now, was, currency }
-
-  function build(d) {
-    T = d.tendril ? { now: amt(d.tendril), was: lst(d.tendril), currency: cur(d.tendril), on: true } : null;
-    C = null; picks = [];
+  // T: Tendril { on, owned, now, was, currency }. C: the Collection, in or out as ONE thing { on, owned, soundsOwned,
+  // packs: [{ key, label, n, owned, now, was }], all, whole, alone, withPacks, currency } (the backend's price blocks).
+  var T = null, C = null;
+  var priced = false;        // the prices on screen are real (Paddle's preview, or the owner's own from owners_offer)
+  var ownerPriced = false;   // they are the owner's own (a token answered owners_offer)
+  function fresh() {
+    T = { on: true, owned: false, now: 0, was: 0, currency: '' };
+    C = { on: true, owned: false, soundsOwned: false, all: null, whole: null, alone: null, withPacks: null, currency: '',
+          packs: PACKS.map(function (p) { return { key: p.key, label: p.label, n: p.n, owned: false, now: 0, was: 0 }; }) };
+    priced = false;
+    ownerPriced = false;
+  }
+  // The owner's own offer (owners_offer). `keep` carries the visitor's choice across a re-pricing.
+  function build(d, keep) {
+    keep = keep || { t: true, c: true };
+    T = d.tendril ? { on: keep.t, owned: false, now: amt(d.tendril), was: lst(d.tendril), currency: cur(d.tendril) }
+                  : { on: false, owned: true, now: 0, was: 0, currency: '' };
     var ch = d.chains;
     if (ch) {
       var s = ch.sounds || {};
-      C = { all: ch.all || null, whole: ch.whole || null, alone: s.alone || null, withPacks: s.with_packs || null, soundsOwned: !!s.owned };
-      (ch.packs || []).forEach(function (p) {
-        picks.push({ key: p.key, label: p.label, n: Number(p.n) || 0, kind: 'pack', owned: !!p.owned, on: !p.owned,
-                     now: amt(p), was: lst(p), currency: cur(p) });
+      var packs = (ch.packs || []).map(function (p) {
+        return { key: p.key, label: p.label, n: Number(p.n) || 0, owned: !!p.owned, now: amt(p), was: lst(p), currency: cur(p) };
       });
-      if (!C.soundsOwned && C.alone) {
-        picks.push({ key: 'sounds', label: 'Sounds & Racks', kind: 'sounds', owned: false, on: true,
-                     now: amt(C.alone), was: lst(C.alone), currency: cur(C.alone) });
-      }
+      var open = packs.filter(function (p) { return !p.owned; });
+      var anyOpen = open.length > 0 || (!s.owned && !!s.alone);
+      C = { on: anyOpen && keep.c, owned: !anyOpen, soundsOwned: !!s.owned, packs: packs,
+            all: ch.all || null, whole: ch.whole || null, alone: s.alone || null, withPacks: s.with_packs || null,
+            currency: cur(ch.whole) || cur(ch.all) || ((open[0] || {}).currency) || cur(s.alone) };
+    } else {
+      C = { on: false, owned: true, soundsOwned: true, all: null, whole: null, alone: null, withPacks: null, currency: '',
+            packs: PACKS.map(function (p) { return { key: p.key, label: p.label, n: p.n, owned: true, now: 0, was: 0 }; }) };
     }
+    priced = true;
+    ownerPriced = true;
   }
-  function packsOn() { return picks.filter(function (p) { return p.kind === 'pack' && p.on && !p.owned; }); }
-  function soundsOn() { return picks.some(function (p) { return p.kind === 'sounds' && p.on; }); }
+  // No token yet: the same two at half of what Paddle quotes this visitor.
+  function buildOpen(minor, currency) {
+    T.now = half(minor.tendril); T.was = minor.tendril; T.currency = currency;
+    C.whole = { list_price: { amount: String(minor.whole), currency: currency },
+                offer_price: { amount: String(half(minor.whole)), currency: currency } };
+    C.currency = currency;
+    priced = true;
+  }
+  function openPacks() { return C.packs.filter(function (p) { return !p.owned; }); }
   function sum(list, f) { return list.reduce(function (a, p) { return a + p[f]; }, 0); }
-  // The Collection's part of the cart, priced exactly as owners_checkout charges it: the cheapest of the parts,
-  // All four (+ the sounds beside a pack) or the whole Stride Collection that covers it; on a tie, the bigger one.
-  function cover() {
-    if (!C) return null;
-    var packs = packsOn(), snd = soundsOn();
-    if (!packs.length && !snd) return null;
+  // The Collection's price, exactly as owners_checkout charges it: the cheapest cover of what is not owned yet
+  // (the parts, All four + the sounds beside them, or the whole Stride Collection); on a tie, the bigger one.
+  // `always` prices it even while it is out of the cart (its card keeps showing its price).
+  function cover(always) {
+    if (!C || C.owned || (!C.on && !always)) return null;
+    var packs = openPacks(), snd = !C.soundsOwned, opts = [];
     var sp = snd ? (packs.length ? C.withPacks : C.alone) : null;
-    var opts = [{ mode: 'parts', rank: 0, now: sum(packs, 'now') + (sp ? amt(sp) : 0), was: sum(packs, 'was') + (sp ? lst(sp) : 0) }];
-    if (C.all && packs.length) opts.push({ mode: 'all', rank: 1, now: amt(C.all) + (snd ? amt(C.withPacks) : 0),
-                                           was: lst(C.all) + (snd ? lst(C.withPacks) : 0) });
+    if (packs.every(function (p) { return p.now > 0; }) && (!snd || sp)) {
+      opts.push({ mode: 'parts', rank: 0, now: sum(packs, 'now') + (sp ? amt(sp) : 0), was: sum(packs, 'was') + (sp ? lst(sp) : 0) });
+    }
+    if (C.all && packs.length && (!snd || C.withPacks)) {
+      opts.push({ mode: 'all', rank: 1, now: amt(C.all) + (snd ? amt(C.withPacks) : 0), was: lst(C.all) + (snd ? lst(C.withPacks) : 0) });
+    }
     if (C.whole) opts.push({ mode: 'whole', rank: 2, now: amt(C.whole), was: lst(C.whole) });
+    if (!opts.length) return null;
     opts.sort(function (x, y) { return (x.now - y.now) || (y.rank - x.rank); });
     return opts[0];
   }
+  function tIn() { return !!(T && T.on && !T.owned); }
+  function cIn() { return !!(C && C.on && !C.owned); }
   function total() {
-    var cv = cover(), tOn = !!(T && T.on);
-    var currency = (T && T.currency) || ((picks[0] || {}).currency) || 'USD';
-    return { cv: cv, any: tOn || !!cv, currency: currency,
-             now: (tOn ? T.now : 0) + (cv ? cv.now : 0), was: (tOn ? T.was : 0) + (cv ? cv.was : 0) };
+    var cv = cover(false), t = tIn();
+    var currency = (t && T.currency) || (cv && C.currency) || T.currency || C.currency || 'USD';
+    return { any: t || cIn(), currency: currency,
+             now: (t ? T.now : 0) + (cv ? cv.now : 0), was: (t ? T.was : 0) + (cv ? cv.was : 0) };
   }
+  function collName() { return C.soundsOwned ? 'StrideChains' : 'The Stride Collection'; }
 
   // ── Drawing ──────────────────────────────────────────────────────────────────
   var PLAY = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z"/></svg>';
@@ -487,69 +609,64 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
       + (lk.logo ? '<img' + (lk.wide ? ' class="wide"' : '') + ' src="' + lk.logo + '" alt="">' : '<span class="w">' + lk.word + '</span>')
       + '</span>';
   }
-  function drawTendril() {
-    var box = q('[data-tendril]');
-    box.hidden = !T;
-    if (!T) return;
-    box.classList.toggle('off', !T.on);
-    q('[data-tprice]').innerHTML = (T.was > T.now ? '<s>' + money(T.was, T.currency) + '</s>' : '') + money(T.now, T.currency);
-    var b = q('[data-ttgl]');
-    b.setAttribute('aria-checked', T.on ? 'true' : 'false');
-    b.innerHTML = T.on ? '&#10003; In your cart' : '+ Re-add Tendril';
+  function priceHtml(now, was, currency) {
+    return (was > now ? '<s>' + money(was, currency) + '</s>' : '') + '<b>' + money(now, currency) + '</b>';
   }
-  function drawPicks(focusKey) {
-    var sec = q('[data-coll]');
-    sec.hidden = !C;
-    if (!C) return;
-    var packs = picks.filter(function (p) { return p.kind === 'pack'; });
-    var n = sum(packs, 'n');
-    q('[data-eqn]').textContent = String(n);
-    q('[data-eqs]').textContent = String(n * 5);
-    q('[data-eq]').setAttribute('aria-label', n + ' StrideChains, times 5 states in every chain, times everything Stride does, equals endless sound design');
-    q('[data-ckick]').textContent = C.soundsOwned ? 'StrideChains' : 'The Stride Collection';
-    q('[data-own-sounds]').hidden = !C.soundsOwned;
-    var anyPack = packsOn().length > 0, cards = [];
-    picks.forEach(function (p) {
-      var sp = anyPack ? C.withPacks : C.alone;
-      var price = p.kind === 'sounds' ? amt(sp) : p.now, was = p.kind === 'sounds' ? lst(sp) : p.was;
-      var lk = LOOK[p.key] || {};
-      var right = p.owned ? 'Yours' : (was > price ? '<s>' + money(was, p.currency) + '</s>' : '') + money(price, p.currency);
-      var sub = p.kind === 'pack' ? p.n + ' StrideChains &middot; ' + (p.n * 5) + ' states' : 'Experimental Collection';
-      cards.push('<div class="prow' + (p.on ? ' on' : '') + (p.owned ? ' owned' : '') + '" data-key="' + p.key + '"'
-        + (!p.owned ? ' role="switch" tabindex="0" aria-checked="' + (p.on ? 'true' : 'false') + '" aria-label="' + esc(p.label) + '"' : '') + '>'
-        + discHtml(p.key)
-        + '<button type="button" class="hear" data-hear="' + p.key + '" aria-pressed="false" aria-label="Hear the ' + esc(p.label) + ' preview">' + PLAY + '</button>'
-        + '<div class="pc-b"><div class="nm"><b>' + esc(p.label) + '</b><span>' + sub + '</span></div>'
-        + (lk.cat ? '<p class="pc-cat">' + esc(lk.cat) + '</p>' : '')
-        + '<span class="pp">' + right + '</span>'
-        + (p.owned ? '' : '<span class="pc-st">' + (p.on ? '&#10003; In your cart' : '+ Re-add') + '</span>') + '</div></div>');
+  function drawCard(key) {
+    var it = key === 'tendril' ? T : C, card = q('[data-card="' + key + '"]');
+    var owned = !!it.owned, on = !owned && !!it.on;
+    card.classList.toggle('on', on);
+    card.classList.toggle('owned', owned);
+    var pp = card.querySelector('[data-pp]'), cv;
+    if (owned) pp.innerHTML = '<span class="yours">Already yours</span>';
+    else if (!priced) pp.innerHTML = '<span class="sk" aria-hidden="true"></span>';
+    else if (key === 'tendril') pp.innerHTML = priceHtml(T.now, T.was, T.currency);
+    else pp.innerHTML = (cv = cover(true)) ? priceHtml(cv.now, cv.was, C.currency) : '';
+    var b = card.querySelector('[data-sel]');
+    b.hidden = owned;
+    b.textContent = on ? 'Remove' : 'Select';
+    b.setAttribute('aria-label', (on ? 'Remove ' : 'Select ') + (key === 'tendril' ? 'Tendril' : collName()));
+  }
+  function drawColl() {
+    q('[data-cname]').textContent = collName();
+    var open = openPacks(), all = open.length === C.packs.length;
+    // (.xl: words a phone leaves out, so each card keeps to two lines there)
+    q('[data-csub]').innerHTML = C.owned ? 'Every StrideChain and sound in it is already yours.'
+      : all && !C.soundsOwned ? '120 StrideChains, 111 Stride wavetables, 250+ sounds<span class="xl"> and 15 Ableton racks</span>.'
+      : all ? 'All 120 for Serum 2, Vital, Diva and Tendril<span class="xl">, with the 111 Stride wavetables</span>. Your Sounds &amp; Racks are already yours.'
+      : esc('The ' + sum(open, 'n') + " StrideChains you don't have yet") + (C.soundsOwned ? '.' : '<span class="xl">, with 250+ sounds and 15 Ableton racks</span>.');
+    var html = C.packs.map(function (p) {
+      return '<div class="dk' + (p.owned ? ' own' : '') + '">' + discHtml(p.key) + '<b>' + p.n + '</b><span class="dkl">'
+        + (p.owned ? 'Yours' : esc(p.label)) + '</span></div>';
     });
-    var host = q('[data-picks]');
-    host.style.setProperty('--cols', String(Math.max(2, picks.length)));
-    host.innerHTML = cards.join('');
-    syncHear();
-    if (focusKey) { var f = host.querySelector('[data-key="' + focusKey + '"]'); if (f) f.focus(); }
+    html.push('<div class="dk' + (C.soundsOwned ? ' own' : '') + '">' + discHtml('sounds') + '<b>250+</b><span class="dkl">'
+      + (C.soundsOwned ? 'Yours' : 'Sounds &amp; Racks') + '</span></div>');
+    q('[data-discs]').innerHTML = html.join('');
   }
-  function drawTotals() {
-    var t = total(), showWas = t.any && t.was > t.now;
-    q('[data-wasl]').hidden = !showWas;
-    q('[data-was]').textContent = showWas ? money(t.was, t.currency) : '';
-    q('[data-now]').textContent = t.any ? money(t.now, t.currency) : '';
-    q('[data-half]').hidden = !showWas;
+  function drawTotals(bump) {
+    var t = total(), showWas = priced && t.any && t.was > t.now;
+    var was = q('[data-was]'), now = q('[data-now]');
+    was.hidden = !showWas;
+    was.textContent = showWas ? money(t.was, t.currency) : '';
+    now.innerHTML = priced ? esc(money(t.any ? t.now : 0, t.currency)) : '<span class="sk" aria-hidden="true"></span>';
+    if (bump && priced) { now.classList.remove('bump'); void now.offsetWidth; now.classList.add('bump'); }
     var b = q('[data-buy]');
     b.disabled = !t.any;
-    b.textContent = t.any ? 'Get it for ' + money(t.now, t.currency) : 'Pick something to add';
-    q('[data-hint]').hidden = !(t.cv && t.cv.mode === 'whole' && !picks.every(function (p) { return p.owned || p.on; }));
+    q('[data-buyl]').textContent = !t.any ? 'Select something' : tIn() && cIn() ? 'Get both' : tIn() ? 'Get Tendril'
+      : 'Get ' + (C.soundsOwned ? 'StrideChains' : 'the Collection');
+    var p = priced && t.any ? money(t.now, t.currency) : '';
+    q('[data-buyp]').textContent = p;
+    q('[data-buyd]').hidden = !p;
   }
-  function draw(focusKey) { drawTendril(); drawPicks(focusKey); drawTotals(); }
+  function draw(bump) { drawCard('tendril'); drawColl(); drawCard('coll'); drawTotals(bump); }
 
-  // ── The previews: one player for the whole page ──────────────────────────────
+  // ── Hear it: one player for the page ─────────────────────────────────────────
   var audio = null, playing = '';
   function syncHear() {
-    Array.prototype.forEach.call(document.querySelectorAll('[data-hear]'), function (b) {
+    qa('[data-hear]').forEach(function (b) {
       var on = b.getAttribute('data-hear') === playing;
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      b.innerHTML = on ? PAUSE : PLAY;
+      b.querySelector('i').innerHTML = on ? PAUSE : PLAY;
     });
   }
   function hear(key) {
@@ -560,8 +677,6 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
         audio.addEventListener('ended', function () { playing = ''; syncHear(); });
       }
       if (playing === key) { audio.pause(); playing = ''; syncHear(); return; }
-      var v = document.querySelector('video');
-      if (v && !v.paused) v.pause();
       audio.src = REELS[key];
       playing = key;
       syncHear();
@@ -569,54 +684,49 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
       if (p && p.catch) p.catch(function () { playing = ''; syncHear(); });
     } catch (e) { playing = ''; syncHear(); }
   }
+  syncHear();
 
-  // ── Toggling ────────────────────────────────────────────────────────────────
+  // ── Select / Remove: a press anywhere on a card ──────────────────────────────
+  var busy = false, paid = false, seen = false;
+  function note(text) { var n = q('[data-note]'); n.textContent = text || ''; n.hidden = !text; }
+  function err(text) { var e = q('[data-err]'); e.textContent = text || ''; e.hidden = !text; }
   function toggle(key) {
-    var p = picks.filter(function (x) { return x.key === key; })[0];
-    if (!p || p.owned) return;
-    p.on = !p.on;
-    q('[data-err]').hidden = true;
-    draw(key);
+    var it = key === 'tendril' ? T : C;
+    if (!it || it.owned || busy) return;
+    it.on = !it.on;
+    err('');
+    note('');
+    draw(true);
   }
   document.addEventListener('click', function (e) {
-    var h = e.target.closest && e.target.closest('[data-hear]');
-    if (h) { e.stopPropagation(); hear(h.getAttribute('data-hear')); return; }
-    var row = e.target.closest && e.target.closest('.prow[role="switch"]');
-    if (row) toggle(row.getAttribute('data-key'));
-  });
-  document.addEventListener('keydown', function (e) {
-    var row = e.target.closest && e.target.closest('.prow[role="switch"]');
-    if (row && (e.key === ' ' || e.key === 'Enter') && e.target === row) { e.preventDefault(); toggle(row.getAttribute('data-key')); }
-  });
-  q('[data-ttgl]').addEventListener('click', function () {
-    if (!T) return;
-    T.on = !T.on;
-    q('[data-err]').hidden = true;
-    draw();
-  });
-  document.querySelector('video').addEventListener('play', function () {
-    if (audio && playing) { audio.pause(); playing = ''; syncHear(); }
+    var t = e.target;
+    var h = t.closest && t.closest('[data-hear]');
+    if (h) { hear(h.getAttribute('data-hear')); return; }
+    var card = t.closest && t.closest('[data-card]');
+    if (card) toggle(card.getAttribute('data-card'));
   });
 
   // ── Buying ──────────────────────────────────────────────────────────────────
-  var busy = false, paid = false;
-  function err(text) { var e = q('[data-err]'); e.textContent = text; e.hidden = false; }
-  q('[data-buy]').addEventListener('click', function () {
-    var t = total(), b = q('[data-buy]');
+  function setBusy(on) {
+    busy = on;
+    [q('[data-buy]'), q('[data-ask] button')].forEach(function (b) {
+      if (on) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');
+    });
+  }
+  function checkout() {
+    var t = total();
     if (busy || !t.any) return;
     if (!window.Paddle) { err("The checkout didn't load. Refresh the page and try again."); return; }
-    busy = true;
-    b.setAttribute('aria-busy', 'true');
-    q('[data-err]').hidden = true;
+    setBusy(true);
+    err('');
     stage('checkout');
-    var ask = { action: 'owners_checkout', k: K, tendril: !!(T && T.on),
-                picks: packsOn().map(function (p) { return p.key; }), collection: soundsOn(),
+    var ask = { action: 'owners_checkout', k: K, tendril: tIn(),
+                picks: cIn() ? openPacks().map(function (p) { return p.key; }) : [], collection: cIn() && !C.soundsOwned,
                 consent_dl: '2026-11-09' };   // the instant-download line under the button (refund policy)
     if (VIA) ask.via = VIA;
     post(withClick(withVisit(ask)))
       .then(function (d) {
-        busy = false;
-        b.removeAttribute('aria-busy');
+        setBusy(false);
         if (d && d.ok && d.transaction_id) {
           Paddle.Checkout.open({ transactionId: d.transaction_id, settings: { displayMode: 'overlay', theme: 'dark', locale: 'en' } });
           return;
@@ -626,11 +736,87 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
         err("Couldn't open the checkout just now. Try again in a moment.");
       })
       .catch(function () {
-        busy = false;
-        b.removeAttribute('aria-busy');
+        setBusy(false);
         err("Couldn't reach the checkout. Check your connection and try again.");
       });
+  }
+  q('[data-buy]').addEventListener('click', function () {
+    if (busy || !total().any) return;
+    if (!K) { openAsk(); return; }
+    if (!ownerPriced) { reprice(); return; }
+    checkout();
   });
+
+  // ── No token: the address Stride was bought with, asked at the button ────────
+  var askForm = q('[data-ask]');
+  function fsay(which) {
+    qa('[data-fmsg]').forEach(function (el) { el.hidden = el.getAttribute('data-fmsg') !== which; });
+  }
+  function openAsk() {
+    err('');
+    note('');
+    q('[data-buy]').hidden = true;
+    askForm.hidden = false;
+    fsay('hint');
+    try { askForm.querySelector('input').focus(); } catch (e) {}
+  }
+  function closeAsk() {
+    askForm.hidden = true;
+    q('[data-buy]').hidden = false;
+    fsay('');
+  }
+  askForm.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var input = askForm.querySelector('input');
+    var email = (input.value || '').trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { fsay('invalid'); try { input.focus(); } catch (e) {} return; }
+    if (busy || !total().any) return;
+    setBusy(true);
+    fsay('');
+    post(withClick({ action: 'owners_find', email: email, via: VIA || 'find' }))
+      .then(function (d) {
+        setBusy(false);
+        if (d && d.ok && d.status === 'found' && /^[0-9a-f]{32}$/.test(d.k || '')) {
+          K = d.k;
+          if (!VIA) VIA = 'find';
+          // A refresh keeps the price open, as a mailed link does.
+          try { var u = new URL(window.location.href); u.searchParams.set('k', K); history.replaceState(null, '', u.toString()); } catch (e) {}
+          reprice(true);
+          return;
+        }
+        if (d && d.ok && d.status === 'not_owner') { fsay('miss'); return; }
+        if (d && d.ok && d.status === 'expired') { message('expired'); return; }
+        fsay(d && d.status === 'rate_limited' ? 'limit' : (d && d.status === 'invalid_email' ? 'invalid' : 'down'));
+      })
+      .catch(function () { setBusy(false); fsay('down'); });
+  });
+  // The owner's own price, once their token is known. When it is what they were already looking at, the checkout
+  // opens straight away; when something changed (Tendril or part of the Collection is already theirs, another
+  // currency), the page shows the new price and says why, and the next press opens it.
+  function reprice(fromAsk) {
+    var was = total(), wasPriced = priced, keep = { t: tIn(), c: cIn() };
+    setBusy(true);
+    post({ action: 'owners_offer', k: K })
+      .then(function (d) {
+        setBusy(false);
+        if (!d || d.status !== 'open') { message((d && d.status) || 'unavailable'); return; }
+        build(d, keep);
+        closeAsk();
+        draw(true);
+        if (!seen) { seen = true; stage('viewed'); }
+        var now = total(), why = [];
+        if (keep.t && T.owned) why.push("Tendril is already yours, so it's out of your price.");
+        if (keep.c && C.owned) why.push("The Collection is already yours, so it's out of your price.");
+        else if (keep.c && (C.soundsOwned || openPacks().length < C.packs.length)) why.push('What you already own of the Collection is out of your price.');
+        if (fromAsk && !why.length && wasPriced && now.any && now.now === was.now && now.currency === was.currency) { checkout(); return; }
+        note(why.length ? why.join(' ') : 'Your price, in your currency.');
+      })
+      .catch(function () {
+        setBusy(false);
+        closeAsk();
+        err("Your price didn't load. Check your connection and try again.");
+      });
+  }
 
   function done() {
     if (paid) return;
@@ -660,48 +846,46 @@ main.wrap{flex:1;padding-top:48px;padding-bottom:40px}
     }
   } catch (e) {}
 
-  // ── The ad's way in: the address Stride was bought with opens that owner's price ──
-  var fform = q('[data-find]');
-  function fsay(which) {
-    Array.prototype.forEach.call(document.querySelectorAll('[data-fmsg]'), function (el) {
-      el.hidden = el.getAttribute('data-fmsg') !== which;
-    });
+  // ── Prices for a visitor without a token: Paddle's own, for this visitor ─────
+  // Paddle's base prices when its preview fails or never answers: the owner's own, in their currency, are read again
+  // from their token before any checkout opens (reprice), so a visitor never pays a figure they were not shown.
+  var fallback = 0;
+  function usd() { clearTimeout(fallback); if (!priced && !ownerPriced) { buildOpen(USD, 'USD'); draw(); } }
+  function preview() {
+    clearTimeout(fallback);
+    fallback = setTimeout(usd, 6000);
+    try {
+      if (!window.Paddle || !Paddle.PricePreview) { usd(); return; }
+      Paddle.PricePreview({ items: [{ priceId: PRICE.tendril, quantity: 1 }, { priceId: PRICE.whole, quantity: 1 }] })
+        .then(function (res) {
+          if (ownerPriced) return;   // the owner's own prices came first
+          var d = (res || {}).data || {}, got = {};
+          ((d.details || {}).lineItems || []).forEach(function (li) {
+            var u = li.unitTotals || li.totals || {}, m = parseInt(u.total, 10);
+            if (li.price && li.price.id && isFinite(m) && m > 0) got[li.price.id] = m;
+          });
+          if (!d.currencyCode || !got[PRICE.tendril] || !got[PRICE.whole]) { usd(); return; }
+          clearTimeout(fallback);
+          buildOpen({ tendril: got[PRICE.tendril], whole: got[PRICE.whole] }, d.currencyCode);
+          draw();
+        })
+        .catch(usd);
+    } catch (e) { usd(); }
   }
-  fform.addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    var input = fform.querySelector('input'), btn = fform.querySelector('button');
-    var email = (input.value || '').trim();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { fsay('invalid'); try { input.focus(); } catch (e) {} return; }
-    if (btn.getAttribute('aria-busy') === 'true') return;
-    btn.setAttribute('aria-busy', 'true');
-    fsay('');
-    post(withClick({ action: 'owners_find', email: email, via: VIA || 'find' }))
-      .then(function (d) {
-        btn.removeAttribute('aria-busy');
-        if (d && d.ok && d.status === 'found' && /^[0-9a-f]{32}$/.test(d.k || '')) {
-          K = d.k;
-          if (!VIA) VIA = 'find';
-          // A refresh keeps the price open, as a mailed link does.
-          try { var u = new URL(window.location.href); u.searchParams.set('k', K); history.replaceState(null, '', u.toString()); } catch (e) {}
-          load();
-          return;
-        }
-        if (d && d.ok && d.status === 'not_owner') { fsay('miss'); return; }
-        if (d && d.ok && d.status === 'expired') { message('expired'); return; }
-        fsay(d && d.status === 'rate_limited' ? 'limit' : (d && d.status === 'invalid_email' ? 'invalid' : 'down'));
-      })
-      .catch(function () { btn.removeAttribute('aria-busy'); fsay('down'); });
-  });
 
   // ── Loading ─────────────────────────────────────────────────────────────────
-  var seen = false;
   function load() {
-    show('wait');
-    if (!K) { show('find'); return; }
+    paid = false;
+    closeAsk();
+    note('');
+    err('');
+    if (!K) { fresh(); draw(); show('offer'); preview(); return; }
     if (!/^[0-9a-f]{32}$/.test(K)) { message('invalid'); return; }
+    show('wait');
     post({ action: 'owners_offer', k: K })
       .then(function (d) {
         if (!d || d.status !== 'open') { message((d && d.status) || 'unavailable'); return; }
+        fresh();
         build(d);
         draw();
         show('offer');
