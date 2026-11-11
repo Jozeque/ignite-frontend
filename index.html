@@ -1551,6 +1551,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .bfbar.bfbar-go:hover{filter:brightness(1.07)}
   .bfbar.bfbar-go:focus-visible{outline:2px solid #1d130a;outline-offset:-5px}
   .bfbar-go-i{font-weight:900;letter-spacing:0;transition:transform .15s}
+  /* "Get the code" (2026-11-11, the popup's side before the email): the words a press answers, underlined like a link,
+     no pill. */
+  .bfbar-cta{font-weight:900;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
   .bfbar.bfbar-go:hover .bfbar-go-i{transform:translateX(3px)}
   .bfd{position:fixed;inset:0;z-index:1001;display:flex;padding:16px;overflow-y:auto;overscroll-behavior:contain;
     background:rgba(0,0,0,.8);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
@@ -2002,6 +2005,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     animation:bfpin-nudge 9s ease-in-out 3s 4}
   #bfpin.bfp-ticket:hover .bfp-t,#bfpin.bfp-ticket:focus-visible .bfp-t{transform:rotate(-3deg) scale(1.04)}
   #bfpin.bfp-ticket:focus-visible{outline:2px solid var(--copper-lt);outline-offset:-2px;border-radius:16px}
+  /* "Get the code" under the ticket (2026-11-11): plain underlined words, no pill, the bar's copper. */
+  .bfp-ticket .bfp-cta{display:block;width:max-content;max-width:160px;margin:3px auto 0;font-size:12px;font-weight:900;
+    letter-spacing:.08em;line-height:1.2;text-transform:uppercase;text-align:center;color:#f7b25c;
+    text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;
+    /* A dark halo, so the words read over whatever the page has under the corner (a phone's text). */
+    text-shadow:0 0 3px #0b0a08,0 0 6px #0b0a08,0 0 12px rgba(11,10,8,.95),0 2px 3px #0b0a08}
   /* The words, for a screen reader: the ticket itself is drawn. */
   .bfp-ticket .bf-pin-t{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   /* Never over the hero's price or its buttons (placePin): on the page just above the desktop
@@ -5474,6 +5483,13 @@ function openBuy() { toggleBuyModal(); }
     // STRIDEBUNDLE made 2026-11-10 on his "Yes, all three" (expires 2026-12-01 08:00 UTC with EARLYBF30); Paddle's
     // previews: US and EU +49.00 exactly, UK +39.65, Canada and Australia +68.98, Israel +147.35.
     const STRIDE_BUNDLE_DISCOUNT  = 'dsc_01m72ytkj97qd4vgqhx25e957p';
+    // On the popup's side of the 30%'s A/B, before the email (Yossi 2026-11-11, in Hebrew, translated, on "+$19.30 before
+    // the email and +$49 after": "you lowered one price and raised another", then "let's try option 1"): the same bump,
+    // +$49, on Stride's full price, so the Bundle is $99 + $49 = $148 until the email and $69.30 + $49 = $118.30 after it;
+    // Stride and the Bundle go down together (strideBundleDiscount). STRIDEBUNDLEFULL: 31.80% off the same three, not
+    // typeable, expires with the others; Paddle's previews: US and EU +49.00 exactly, UK +38.53, Canada and Australia
+    // +69.01, Israel +145.90. Empty: the popup's side has the Black Friday Bundle before the email too.
+    const STRIDE_BUNDLE_DISCOUNT_FULL = 'dsc_01m7615n0gdj7q147k97wt8w1r';
     // A bundle buyer owns all three, so nothing after checkout has anything to offer them: straight to the download.
     const PADDLE_BUNDLE_SUCCESS_URL = 'https://stridehub.io/welcome.html';
     // While the bump is the Stride Bundle (Black Friday), whoever buys Stride alone meets the Bundle's completion first
@@ -5596,6 +5612,7 @@ function openBuy() { toggleBuyModal(); }
     const STRIDE_BUMP_TEST = (window.STRIDE_BF_ON && /^dsc_[a-z0-9]{26}$/.test(STRIDE_BUNDLE_DISCOUNT)) ? 'bundle' : 'ab';
     const TENDRIL_ADDON_PRICE = 49;       // dollars; Paddle's own price per country replaces it
     const BUNDLE_PERCENT = 45.48;         // the Stride Bundle's discount, for the dollar figures before Paddle answers
+    const BUNDLE_FULL_PERCENT = 31.80;    // STRIDEBUNDLEFULL's, ditto (the popup's side before the email)
     let strideBumpArmMemo = '';
     function strideBumpArm() {
         if (strideBumpArmMemo) return strideBumpArmMemo;
@@ -5920,15 +5937,17 @@ function openBuy() { toggleBuyModal(); }
     // STRIDE instead of UP TO 50% OFF"); the CSS sets it in capitals.
     function strideBfWords() {
         var lang = String(document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
+        // The fifth: what a press does on the popup's side of the 30%'s A/B before the email (Yossi 2026-11-11: "add CLICK
+        // HERE in the sticky and in the strip, not sure they understand it can be pressed; or GET THE CODE, whatever you think").
         return {
-            en: ['30% OFF Stride', 'Black November Promotion', 'Ends in', 'd'],
-            de: ['30 % Rabatt auf Stride', 'Black November Aktion', 'Endet in', 'T'],
-            es: ['30 % de descuento en Stride', 'Promoción Black November', 'Termina en', 'd'],
-            fr: ['-30 % sur Stride', 'Promotion Black November', 'Se termine dans', 'j'],
-            it: ['30% di sconto su Stride', 'Promozione Black November', 'Termina tra', 'g'],
-            ja: ['Stride 30%オフ', 'ブラックノベンバー・プロモーション', '終了まで', '日'],
-            zh: ['Stride 7折', '黑色十一月促销', '距结束', '天']
-        }[lang] || ['30% OFF Stride', 'Black November Promotion', 'Ends in', 'd'];
+            en: ['30% OFF Stride', 'Black November Promotion', 'Ends in', 'd', 'Get the code'],
+            de: ['30 % Rabatt auf Stride', 'Black November Aktion', 'Endet in', 'T', 'Code holen'],
+            es: ['30 % de descuento en Stride', 'Promoción Black November', 'Termina en', 'd', 'Consigue el código'],
+            fr: ['-30 % sur Stride', 'Promotion Black November', 'Se termine dans', 'j', 'Obtiens le code'],
+            it: ['30% di sconto su Stride', 'Promozione Black November', 'Termina tra', 'g', 'Ottieni il codice'],
+            ja: ['Stride 30%オフ', 'ブラックノベンバー・プロモーション', '終了まで', '日', 'コードを受け取る'],
+            zh: ['Stride 7折', '黑色十一月促销', '距结束', '天', '领取优惠码']
+        }[lang] || ['30% OFF Stride', 'Black November Promotion', 'Ends in', 'd', 'Get the code'];
     }
     // On the popup's side of the 30%'s A/B (2026-11-11, STRIDE_BF_ARM 'popup', no 30% baked in) the bar stays (Yossi:
     // "of course the strip can stay there, so it is also 48 hours") and follows this browser's own offer, as the popup's
@@ -5951,6 +5970,10 @@ function openBuy() { toggleBuyModal(); }
         var endsWord = el('span', 'bfbar-k', W[2]);
         ends.appendChild(endsWord);
         ends.appendChild(clock);
+        // "Get the code", on the popup's side before the email only (tickOwn shows it).
+        var cta = el('span', 'bfbar-cta', W[4]);
+        cta.style.display = 'none';
+        ends.appendChild(cta);
         // The bar is a button since 2026-11-08: it opens the two deals (strideBfDealOpen). The arrow says so on a
         // phone, where nothing hovers.
         var go = el('span', 'bfbar-go-i', '→');
@@ -5990,6 +6013,7 @@ function openBuy() { toggleBuyModal(); }
                 var counting = l.look === 'code';
                 endsWord.style.display = counting ? '' : 'none';
                 clock.style.display = counting ? '' : 'none';
+                cta.style.display = l.look === 'offer' ? '' : 'none';
                 if (counting) {
                     // In hours, as the popup and the code line count a 48-hour code ("47:59:59").
                     var s = Math.max(0, Math.floor((l.ends - Date.now()) / 1000));
@@ -6243,7 +6267,21 @@ function openBuy() { toggleBuyModal(); }
     }
     // The one discount the cart carries: the Stride Bundle's own while the bundle is in the cart, else the page's code
     // (Black Friday's EARLYBF30, an ad's, a personal one), or none.
-    function strideCartDiscount()   { return strideBumpIn() === 'bundle' ? STRIDE_BUNDLE_DISCOUNT : strideCodeId; }
+    function strideCartDiscount()   { return strideBumpIn() === 'bundle' ? strideBundleDiscount() : strideCodeId; }
+    // The Stride Bundle's discount right now (2026-11-11): its Black Friday one (STRIDEBUNDLE, Stride's $69.30 + $49) on the
+    // baked side of the 30%'s A/B, and on the popup's side once the visitor's 30% code is the page's code; on the popup's
+    // side before that, STRIDEBUNDLEFULL (Stride's $99 + $49). The bump reads +$49 either way, and the email takes the same
+    // $29.70 off Stride alone and off the Bundle.
+    function strideBundleDealOn() {
+        if (window.STRIDE_BF || window.STRIDE_BF_ARM !== 'popup' || !STRIDE_BUNDLE_DISCOUNT_FULL) return true;
+        return !!strideBfDid && strideCodeId === strideBfDid;
+    }
+    function strideBundleDiscount() { return strideBundleDealOn() ? STRIDE_BUNDLE_DISCOUNT : STRIDE_BUNDLE_DISCOUNT_FULL; }
+    // What the three cost this visitor right now, at that discount: Paddle's figures once it has answered, the dollars until then.
+    function strideBundleNow() {
+        var b = strideBundle || strideBundleDollars();
+        return strideBundleDealOn() || b.pre == null ? b.charged : b.pre;
+    }
     // What the order costs THIS visitor, in the currency they will be charged in. Paddle's own
     // per-item amounts when it has priced them, so the page can never print a total the checkout
     // does not take: the Collection is CA$34.99 in Canada and GBP 18.99 in the UK, not 24.99
@@ -6259,18 +6297,20 @@ function openBuy() { toggleBuyModal(); }
         return bf ? Math.round(STRIDE_PRICE * 70) / 100 : STRIDE_PRICE;
     }
     function strideOrderTotal() {
-        // The Stride Bundle: all three at its 50%, Paddle's figure once it has answered.
-        if (strideBumpIn() === 'bundle') return strideBundle ? strideBundle.charged : strideBundleDollars().charged;
+        // The Stride Bundle: all three at its discount right now (strideBundleNow), Paddle's figure once it has answered.
+        if (strideBumpIn() === 'bundle') return strideBundleNow();
         var stride = strideStridePrice();
         return stride + (strideAddonActive() ? strideBumpPrice() : 0);
     }
 
     // The Stride Bundle in dollars, until Paddle has priced it: $99 + $49 + $69 = $217, and each at its discount, to
     // the cent as Paddle rounds it ($53.97 + $26.71 + $37.62 = $118.30).
+    // pre: the same at STRIDEBUNDLEFULL, the popup's side before the email ($67.52 + $33.42 + $47.06 = $148).
     function strideBundleDollars() {
-        var off = function (v) { return Math.round(v * (100 - BUNDLE_PERCENT)) / 100; };
+        var off = function (v, pct) { return Math.round(v * (100 - pct)) / 100; };
+        var at = function (pct) { return off(STRIDE_PRICE, pct) + off(TENDRIL_ADDON_PRICE, pct) + off(COLLECTION_VALUE, pct); };
         return { list: STRIDE_PRICE + TENDRIL_ADDON_PRICE + COLLECTION_VALUE,
-                 charged: off(STRIDE_PRICE) + off(TENDRIL_ADDON_PRICE) + off(COLLECTION_VALUE) };
+                 charged: at(BUNDLE_PERCENT), pre: at(BUNDLE_FULL_PERCENT) };
     }
     // The Bundle's ticket: what its discount takes off the three for this visitor (Paddle's own figures once it has
     // answered), rounded down: 45% for the $49 bump (2026-11-10). It read a fixed 50% while the discount was 50%.
@@ -6294,10 +6334,10 @@ function openBuy() { toggleBuyModal(); }
     // The bump's own price in the charged currency: Tendril's from its own Paddle preview
     // (strideTendril), the Collection's as before.
     function strideBumpPrice() {
-        // The bundle as an upgrade: what it adds to Stride alone at the page's own price (EARLYBF30's, say).
+        // The bundle as an upgrade: what it adds to Stride alone at the page's own price (EARLYBF30's, say): +$49 on
+        // $69.30, and on the popup's side before the email +$49 on $99 (strideBundleNow).
         if (strideBumpArm() === 'bundle') {
-            var b = strideBundle ? strideBundle.charged : strideBundleDollars().charged;
-            return Math.max(0, b - strideStridePrice());
+            return Math.max(0, strideBundleNow() - strideStridePrice());
         }
         if (strideBumpArm() === 'tendril') return strideTendril ? strideTendril.charged : TENDRIL_ADDON_PRICE;
         return strideCollectionPrice();
@@ -6546,7 +6586,7 @@ function openBuy() { toggleBuyModal(); }
                     // at the bundle's discount: both are Paddle's figures for this visitor once it has answered.
                     const b = strideBundle || strideBundleDollars();
                     row.querySelectorAll('[data-bundle-was]').forEach(function (el) { el.textContent = strideMoneyExact(b.list); });
-                    row.querySelectorAll('[data-bundle-now]').forEach(function (el) { el.textContent = strideMoneyExact(b.charged); });
+                    row.querySelectorAll('[data-bundle-now]').forEach(function (el) { el.textContent = strideMoneyExact(strideBundleNow()); });
                 }
                 const tb = row.querySelector('.addon-btn');
                 if (tb) tb.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -6610,10 +6650,48 @@ function openBuy() { toggleBuyModal(); }
         const ticket = showSave && ((!on && ((!!strideBfDid && strideCodeId === strideBfDid)
             || (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF]))) || bundleIn);
         const ticketPct = bundleIn ? strideBundlePct() : '30%';
+        // The popup's side of the 30%'s A/B before the email (Yossi 2026-11-11, on the buy bar with "$99" alone: "the order
+        // bump takes a lot of room; give the left part its space, as it was... exactly this structure, only without the Black
+        // Friday badge"): the hero's price line keeps the struck price's and the ticket's room, unseen, so the bar has the
+        // columns it has with the ticket on the other side and after the email.
+        const ghost = !showSave && !!window.STRIDE_BF_ON && !window.STRIDE_BF && window.STRIDE_BF_ARM === 'popup';
         document.querySelectorAll('.sd-price-box').forEach(function (box) {
             const was = box.querySelector('.sd-was');
             const seal = box.querySelector('.sd-save');
-            if (was) { was.textContent = showSave ? strideMoneyExact(full) : ''; was.style.display = showSave ? '' : 'none'; }
+            const room = ghost && box.classList.contains('hero-price-line');
+            if (was) {
+                was.textContent = showSave || room ? strideMoneyExact(full) : '';
+                was.style.display = showSave || room ? '' : 'none';
+                was.style.visibility = room ? 'hidden' : '';
+            }
+            // The price itself takes the room the baked side's price takes ($69.30 is wider than $99): measured with that
+            // figure in it, then given back its own.
+            const big = box.classList.contains('hero-price-line') ? box.querySelector('.hero-price') : null;
+            if (big) {
+                big.style.minWidth = '';
+                if (room) {
+                    const own = big.textContent;
+                    big.textContent = strideMoneyExact(bundleIn ? (strideBundle || strideBundleDollars()).charged
+                                                                : Math.round(strideStridePrice() * 70) / 100);
+                    const w = big.getBoundingClientRect().width;
+                    big.textContent = own;
+                    if (w) big.style.minWidth = Math.ceil(w) + 'px';
+                }
+            }
+            if (seal && room) {
+                const roomPct = bundleIn ? strideBundlePct() : '30%';
+                if (!seal.classList.contains('bf-ticket') || seal.getAttribute('data-pct') !== roomPct) {
+                    seal.classList.add('bf-ticket');
+                    seal.innerHTML = strideTicketSvg(roomPct);
+                    seal.setAttribute('data-pct', roomPct);
+                }
+                seal.removeAttribute('role');
+                seal.removeAttribute('aria-label');
+                seal.style.display = '';
+                seal.style.visibility = 'hidden';
+                return;
+            }
+            if (seal) seal.style.visibility = '';
             if (seal) {
                 if (ticket && box.classList.contains('hero-price-line')) {
                     if (!seal.classList.contains('bf-ticket') || seal.getAttribute('data-pct') !== ticketPct) {
@@ -6832,7 +6910,10 @@ function openBuy() { toggleBuyModal(); }
                          tdr ? strideTendrilPreview('') : null,
                          tdr && strideCodeId ? strideTendrilPreview(strideCodeId) : null,
                          bdl ? strideBundlePreview('') : null,
-                         bdl ? strideBundlePreview(STRIDE_BUNDLE_DISCOUNT) : null])
+                         bdl ? strideBundlePreview(STRIDE_BUNDLE_DISCOUNT) : null,
+                         // The popup's side of the 30%'s A/B: the three before the email too (STRIDEBUNDLEFULL).
+                         bdl && STRIDE_BUNDLE_DISCOUNT_FULL && !window.STRIDE_BF && window.STRIDE_BF_ARM === 'popup'
+                             ? strideBundlePreview(STRIDE_BUNDLE_DISCOUNT_FULL) : null])
                 .then(function (both) {
                     if (gen !== strideLocalizeGen) return;
                     var list = both[0];
@@ -6844,12 +6925,14 @@ function openBuy() { toggleBuyModal(); }
                                      && tl.currency === list.currency && tc.currency === charged.currency)
                         ? { list: tl.tendril, charged: tc.tendril } : null;
                     // The Stride Bundle's: the three lines' sum without and with its 50%, in this same currency only.
-                    var bl = both[4], bc = both[5];
+                    var bl = both[4], bc = both[5], bp = both[6];
                     var three = function (p) { return p.stride + p.tendril + p.value; };
                     strideBundle = (bl && bc && bl.tendril != null && bc.tendril != null && bl.value != null && bc.value != null
                                     && bl.currency === list.currency && bc.currency === list.currency
                                     && three(bc) < three(bl))
-                        ? { list: three(bl), charged: three(bc) } : null;
+                        ? { list: three(bl), charged: three(bc),
+                            pre: (bp && bp.tendril != null && bp.value != null && bp.currency === list.currency) ? three(bp) : null }
+                        : null;
                     strideList = list;
                     var cur = charged.currency;
                     // Dollars at the list price is what the page already prints, unless its own dollars have a code's
@@ -8030,6 +8113,11 @@ function openBuy() { toggleBuyModal(); }
     pin.classList.add(TICKET ? 'bfp-ticket' : 'bfp-pill');
     pin.appendChild(pinLabel);
     if (TICKET) pin.insertAdjacentHTML('beforeend', '<span class="bfp-t">' + pinTicket('bfpin-g', true) + '</span>');
+    // Under the ticket, what a press does (Yossi 2026-11-11: "add CLICK HERE in the sticky and in the strip, not sure they
+    // understand it can be pressed; or GET THE CODE"): the bar's own words (strideBfWords), so both say the same. The pin
+    // is only ever there before the email.
+    if (TICKET) pin.appendChild(el('span', 'bfp-cta',
+        (typeof strideBfWords === 'function' && strideBfWords()[4]) || 'Get the code'));
     // A stub line at its own size, smaller only where it would not fit (a longer word in some
     // languages), measured in the drawing's own units.
     function stubLine(node, text, size) {
@@ -8311,6 +8399,9 @@ function openBuy() { toggleBuyModal(); }
         window.STRIDE_CODE_ACTIVE = true;
         try { strideLocalizePrices(); } catch (e) {}
         try { strideSyncExpressItems(); } catch (e) {}
+        // The order bump's prices follow at once (on the popup's side of the 30%'s A/B the Bundle goes down with Stride,
+        // 2026-11-11), not only once Paddle has answered.
+        try { strideSyncAddon(); } catch (e) {}
         pin.hidden = true;
         paint();
     }
