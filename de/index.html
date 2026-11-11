@@ -1328,6 +1328,52 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     letter-spacing:.14em;color:var(--ink2);font-feature-settings:"tnum"}
   .proof-nav.proof-counted .proof-dots{display:none}
   .proof-nav.proof-counted .proof-count{display:block}
+  /* The reels strip above the quotes (#reels): /why-stride's reels at about two thirds of their size.
+     From 900px up five cards of at most 172px, centred; 700 to 900 the five share the width (128px
+     at least, so the sound button keeps its words) and the row bleeds to the screen edges like the
+     quotes; on a phone each is 35% of the screen, two and part of the third in view. The first and
+     last cards' auto margins centre the row while it fits and fall to 0 once it scrolls, so the
+     first reel can always be reached. */
+  .reels{display:flex;gap:16px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+    scrollbar-width:none;overscroll-behavior-x:contain;padding:4px 0 12px;margin:0 0 2.5rem}
+  .reels::-webkit-scrollbar{display:none}
+  .reels:focus-visible{outline:2px solid var(--copper-lt);outline-offset:4px;border-radius:18px}
+  .reel{flex:0 1 172px;min-width:128px;margin:0;scroll-snap-align:start}
+  .reel:first-child{margin-left:auto}
+  .reel:last-child{margin-right:auto}
+  .reel-frame{position:relative;aspect-ratio:9/16;border-radius:16px;overflow:hidden;border:1px solid var(--line);
+    background:var(--raise);box-shadow:0 20px 40px -26px rgba(0,0,0,.9)}
+  .reel-frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;cursor:pointer}
+  .reel-sound{position:absolute;left:8px;bottom:8px;display:inline-flex;align-items:center;gap:5px;max-width:calc(100% - 16px);
+    padding:6px 9px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(10,9,7,.62);color:var(--ink);
+    font-size:11px;font-weight:700;line-height:1.15;letter-spacing:.02em;text-align:left;cursor:pointer;
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  .reel-sound svg{width:14px;height:14px;flex:none}
+  .reel-sound[aria-pressed="true"]{border-color:rgba(221,154,82,.6);color:var(--copper-lt)}
+  .reel-sound:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+  .reel-sound .reel-on,.reel-sound .reel-still,.reel-sound .reel-i-on{display:none}
+  .reel-sound[aria-pressed="true"] .reel-off,.reel-sound[aria-pressed="true"] .reel-i-off{display:none}
+  .reel-sound[aria-pressed="true"] .reel-on,.reel-sound[aria-pressed="true"] .reel-i-on{display:inline}
+  @media (prefers-reduced-motion:reduce){
+    .reel-sound[aria-pressed="false"] .reel-off{display:none}
+    .reel-sound[aria-pressed="false"] .reel-still{display:inline}
+  }
+  .reel figcaption{margin-top:10px}
+  .reel-name{font-size:14px;font-weight:700;line-height:1.2;color:var(--ink)}
+  .reel-role{margin-top:4px;font-size:9.5px;letter-spacing:.2em}
+  @media (max-width:899.98px){
+    section[data-ms="social"] .reels{gap:10px;margin:0 -1.5rem 1.75rem;padding:4px 1.5rem 10px;scroll-padding-inline:1.5rem}
+    .reel-sound{left:7px;bottom:7px;gap:4px;padding:5px 8px;max-width:calc(100% - 14px)}
+    .reel-sound svg{width:13px;height:13px}
+  }
+  @media (max-width:699.98px){
+    .reel{flex:0 0 max(35vw,130px);min-width:0}
+    .reel-frame{border-radius:14px}
+    .reel-sound{font-size:10.5px}
+    .reel figcaption{margin-top:8px}
+    .reel-name{font-size:13px}
+    .reel-role{font-size:9px;letter-spacing:.16em}
+  }
   .divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
   .lane{fill:none;stroke-width:2}
   details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
@@ -3422,6 +3468,157 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <h2 class="text-4xl md:text-6xl mb-4">Schon in ihren <span class="brand">Sessions.</span></h2>
       <p class="text-lg md:text-xl max-w-3xl mx-auto leading-relaxed ink2 font-light"><b class="ink font-semibold">Hunderte Producer</b> erkunden schon mit Stride.</p>
     </div>
+
+    <!-- REELS (Yossi 2026-11-11: "put it on the homepage too, small, above the text reviews, as a
+         strip"). The five reels of /why-stride (src/lib/why.ts), same videos, posters, names and
+         sound button, smaller: five across from about 730px, on a phone two and part of the third, swiped
+         like the quotes below. Each plays muted on a loop while it is mostly on screen and rests
+         when it leaves; a press gives one reel its sound from the start, and only one ever has it.
+         Nothing loads early: the posters come when the strip is near, a video only once it plays.
+         Names are names (data-no-translate); the roles and the button's words are translated. -->
+    <div class="reels" id="reels" tabindex="0" role="region" aria-label="Stride in Aktion">
+      <figure class="reel">
+        <div class="reel-frame">
+          <video src="/media/why/killer-creative.mp4" data-poster="/media/why/killer-creative.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n1 reel-r1"></video>
+          <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n1">
+            <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+            <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+            <span class="reel-off">Ton einschalten</span><span class="reel-still">Mit Ton abspielen</span><span class="reel-on">Ton an</span>
+          </button>
+        </div>
+        <figcaption>
+          <p class="reel-name" id="reel-n1">Ein Klick, frische Variation</p>
+          <p class="silk reel-role" id="reel-r1" data-no-translate>Joe, Stride</p>
+        </figcaption>
+      </figure>
+      <figure class="reel">
+        <div class="reel-frame">
+          <video src="/media/why/andromeda-colt.mp4" data-poster="/media/why/andromeda-colt.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n2 reel-r2"></video>
+          <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n2">
+            <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+            <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+            <span class="reel-off">Ton einschalten</span><span class="reel-still">Mit Ton abspielen</span><span class="reel-on">Ton an</span>
+          </button>
+        </div>
+        <figcaption>
+          <p class="reel-name" id="reel-n2" data-no-translate>Andromeda Colt</p>
+          <p class="silk reel-role" id="reel-r2">Bass-Music-Produktion</p>
+        </figcaption>
+      </figure>
+      <figure class="reel">
+        <div class="reel-frame">
+          <video src="/media/why/brojanowski.mp4" data-poster="/media/why/brojanowski.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n3 reel-r3"></video>
+          <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n3">
+            <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+            <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+            <span class="reel-off">Ton einschalten</span><span class="reel-still">Mit Ton abspielen</span><span class="reel-on">Ton an</span>
+          </button>
+        </div>
+        <figcaption>
+          <p class="reel-name" id="reel-n3" data-no-translate>Brojanowski</p>
+          <p class="silk reel-role" id="reel-r3">Dark Prog</p>
+        </figcaption>
+      </figure>
+      <figure class="reel">
+        <div class="reel-frame">
+          <video src="/media/why/evolve-tech-sound.mp4" data-poster="/media/why/evolve-tech-sound.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n4 reel-r4"></video>
+          <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n4">
+            <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+            <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+            <span class="reel-off">Ton einschalten</span><span class="reel-still">Mit Ton abspielen</span><span class="reel-on">Ton an</span>
+          </button>
+        </div>
+        <figcaption>
+          <p class="reel-name" id="reel-n4" data-no-translate>Evolve Tech Sound</p>
+          <p class="silk reel-role" id="reel-r4">Sounddesign</p>
+        </figcaption>
+      </figure>
+      <figure class="reel">
+        <div class="reel-frame">
+          <video src="/media/why/liran-paskehat.mp4" data-poster="/media/why/liran-paskehat.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n5 reel-r5"></video>
+          <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n5">
+            <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+            <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+            <span class="reel-off">Ton einschalten</span><span class="reel-still">Mit Ton abspielen</span><span class="reel-on">Ton an</span>
+          </button>
+        </div>
+        <figcaption>
+          <p class="reel-name" id="reel-n5" data-no-translate>Liran Paskehat</p>
+          <p class="silk reel-role" id="reel-r5">Musikproduktion</p>
+        </figcaption>
+      </figure>
+    </div>
+    <script>
+    // The reels' playing rules, the same as /why-stride's (src/components/CreativeRail.tsx): a reel
+    // plays muted while at least 60% of it is on screen and rests below 30%; with reduced motion
+    // nothing moves until somebody asks for sound. A press on a reel or its button gives that reel
+    // its sound from the start and mutes the others; a second press mutes it. Another film on this
+    // page starting with sound (the walkthrough, Tendril, StrideChains) takes the sound back.
+    (function () {
+      var strip = document.getElementById('reels');
+      if (!strip) return;
+      var vids = [].slice.call(strip.querySelectorAll('video'));
+      var btns = [].slice.call(strip.querySelectorAll('.reel-sound'));
+      var reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+      var loud = -1;
+      function play(v) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+      function paint() {
+        for (var k = 0; k < btns.length; k++) btns[k].setAttribute('aria-pressed', k === loud ? 'true' : 'false');
+      }
+      function hush() {
+        if (loud < 0) return;
+        vids[loud].muted = true;
+        loud = -1;
+        paint();
+      }
+      function sound(i) {
+        var v = vids[i];
+        if (loud === i && !v.muted) { hush(); return; }
+        for (var k = 0; k < vids.length; k++) if (k !== i) vids[k].muted = true;
+        v.muted = false;
+        if (v.preload === 'none') v.preload = 'auto';
+        try { v.currentTime = 0; } catch (e) {}
+        play(v);
+        loud = i;
+        paint();
+      }
+      vids.forEach(function (v, i) {
+        v.addEventListener('click', function () { sound(i); });
+        btns[i].addEventListener('click', function () { sound(i); });
+      });
+      document.addEventListener('play', function (e) {
+        var t = e.target;
+        if (t && (t.tagName === 'VIDEO' || t.tagName === 'AUDIO') && !t.muted && vids.indexOf(t) < 0) hush();
+      }, true);
+      // The five posters (about 385 KB) wait for the page to finish loading and for the strip to come
+      // within 800px, so they never compete with the hero on a phone's first screen.
+      function posters() {
+        vids.forEach(function (v) { var p = v.getAttribute('data-poster'); if (p && !v.getAttribute('poster')) v.setAttribute('poster', p); });
+      }
+      if (!('IntersectionObserver' in window)) { posters(); return; }
+      function watch() {
+        var near = new IntersectionObserver(function (entries) {
+          for (var k = 0; k < entries.length; k++) {
+            if (entries[k].isIntersecting) { posters(); near.disconnect(); return; }
+          }
+        }, { rootMargin: '800px 0px' });
+        near.observe(strip);
+      }
+      if (window.strideAfterLoad) strideAfterLoad(watch); else watch();
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          var v = e.target;
+          if (e.isIntersecting && e.intersectionRatio >= 0.6) {
+            if (v.preload === 'none') v.preload = 'auto';
+            if (!reduce || !v.muted) play(v);
+          } else if (!e.isIntersecting || e.intersectionRatio < 0.3) {
+            v.pause();
+          }
+        });
+      }, { threshold: [0, 0.3, 0.6, 1] });
+      vids.forEach(function (v) { io.observe(v); });
+    })();
+    </script>
 
     <div class="proof-rail" id="proof-rail" tabindex="0" role="region" aria-roledescription="carousel" aria-label="Was Producer über Stride sagen">
 
