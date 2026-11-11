@@ -5683,17 +5683,19 @@ function openBuy() { toggleBuyModal(); }
     // fresh browser never restarts it. In the page's own language from this small dictionary (JS, so no translated
     // homepage loses its translation). When it reaches zero with the page open, the page reloads and is the ordinary
     // page again: $99, no bar, no popup. The hero keeps the price and the ticket, without a line of its own.
+    // Since 2026-11-10 its first words are Stride's own deal (Yossi: "fix the Black Friday strip at the top to 30% OFF
+    // STRIDE instead of UP TO 50% OFF"); the CSS sets it in capitals.
     function strideBfWords() {
         var lang = String(document.documentElement.lang || 'en').slice(0, 2).toLowerCase();
         return {
-            en: ['Up to 50% OFF', 'Black November Promotion', 'Ends in', 'd'],
-            de: ['Bis zu 50 % Rabatt', 'Black November Aktion', 'Endet in', 'T'],
-            es: ['Hasta 50 % de descuento', 'Promoción Black November', 'Termina en', 'd'],
-            fr: ['Jusqu’à -50 %', 'Promotion Black November', 'Se termine dans', 'j'],
-            it: ['Fino al 50% di sconto', 'Promozione Black November', 'Termina tra', 'g'],
-            ja: ['最大50%オフ', 'ブラックノベンバー・プロモーション', '終了まで', '日'],
-            zh: ['最高5折', '黑色十一月促销', '距结束', '天']
-        }[lang] || ['Up to 50% OFF', 'Black November Promotion', 'Ends in', 'd'];
+            en: ['30% OFF Stride', 'Black November Promotion', 'Ends in', 'd'],
+            de: ['30 % Rabatt auf Stride', 'Black November Aktion', 'Endet in', 'T'],
+            es: ['30 % de descuento en Stride', 'Promoción Black November', 'Termina en', 'd'],
+            fr: ['-30 % sur Stride', 'Promotion Black November', 'Se termine dans', 'j'],
+            it: ['30% di sconto su Stride', 'Promozione Black November', 'Termina tra', 'g'],
+            ja: ['Stride 30%オフ', 'ブラックノベンバー・プロモーション', '終了まで', '日'],
+            zh: ['Stride 7折', '黑色十一月促销', '距结束', '天']
+        }[lang] || ['30% OFF Stride', 'Black November Promotion', 'Ends in', 'd'];
     }
     function strideBfBar() {
         var bar = document.getElementById('bfbar');
