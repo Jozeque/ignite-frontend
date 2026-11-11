@@ -36,11 +36,40 @@
     // strideReadCode and the Early Black Friday popup, which then neither opens nor pins; STRIDE_BF_END tells
     // that popup it stays shut after the end too. Not over the gift checkout, its own offer. The React pages
     // read NAME and END from this exact line at build time (src/lib/paddle-config.ts). Tests serve END = 0.
+    //
+    // The A/B of 2026-11-11 (Yossi, in Hebrew, translated: "an A/B test: A exactly as it is today, B exactly as it
+    // was with the 48-hour popup... only this way we will know"; the post-purchase and the order bump stay as they are).
+    // Side 'baked' (A) is everything above: 30% for everyone, the bar counting to the end of November. Side 'popup' (B)
+    // is the page as it was until 2026-11-07: the ordinary price until the email, the popup at 15 seconds (at once from
+    // a Meta or Google ad), a personal 30% code for 48 hours and its mails; the bar stays there too ("so it is also 48
+    // hours") and counts that code down once it exists, with no clock before the email. STRIDE_BF_ON says the sale runs,
+    // on both sides: the bar, the Stride Bundle in the order bump, the Collection's line. One coin per browser, kept
+    // (localStorage stride_bf_arm), tossed on stridehub.io only: anywhere else (a local build, the page tests) it is the
+    // baked side unless ?bfarm=baked|popup asks, which is kept too. A personal code on the address (the code mail's
+    // link) works on both sides, so it does not choose one: a mail from before the test must not land anyone on the
+    // ordinary price. Every checkout, wallet and lead carries its side (bf_arm) and Clarity tags the visit. AB: 'ab'
+    // runs the test; 'baked' or 'popup' puts everyone on that side, which is how it ends. The React pages read AB from
+    // its own line below too.
     (function () {
       var NAME = 'earlybf30', END = Date.parse('2026-12-01T08:00:00Z');   // midnight after November 30, US Pacific
+      var AB = 'ab';
       try {
         window.STRIDE_BF_END = END;
-        if (Date.now() < END && !window.STRIDE_GIFT) window.STRIDE_BF = NAME;
+        if (Date.now() < END && !window.STRIDE_GIFT) {
+          window.STRIDE_BF_ON = true;
+          var ok = function (v) { return v === 'baked' || v === 'popup'; };
+          var arm = ok(AB) ? AB : '', keep = !arm, q = null;
+          try { q = new URLSearchParams(location.search); } catch (e) {}
+          if (!arm && q && ok(String(q.get('bfarm') || '').toLowerCase())) arm = String(q.get('bfarm')).toLowerCase();
+          if (!arm) { try { var kept = localStorage.getItem('stride_bf_arm'); if (ok(kept)) arm = kept; } catch (e) {} }
+          if (!arm) {
+            if (/(^|\.)stridehub\.io$/i.test(location.hostname)) arm = Math.random() < 0.5 ? 'baked' : 'popup';
+            else { arm = 'baked'; keep = false; }
+          }
+          if (keep) { try { localStorage.setItem('stride_bf_arm', arm); } catch (e) {} }
+          window.STRIDE_BF_ARM = arm;
+          if (arm === 'baked') window.STRIDE_BF = NAME;
+        }
       } catch (e) {}
     })();
     </script>
@@ -4548,7 +4577,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   (function () {
     'use strict';
     var own = document.querySelector('[data-sc-owners]');
-    if (own && window.STRIDE_BF) own.hidden = false;
+    if (own && window.STRIDE_BF_ON) own.hidden = false;
     var FILM_WIDE = '/media/collection/film/collection-showcase-1080.mp4';
     var FILM_TALL = '/media/collection/film/collection-showcase-9x16.mp4';
     var TALL = window.matchMedia ? window.matchMedia('(max-width:640px)') : null;
@@ -5271,6 +5300,8 @@ document.addEventListener('DOMContentLoaded', function () {
    film are their own actions. */
 document.addEventListener('DOMContentLoaded', function () {
   try { if (window.strideClarity) window.strideClarity('', { bump_arm: strideBumpArm() }); } catch (e) {}
+  // The 30%'s A/B (2026-11-11): its side, so recordings and funnels can be cut by it.
+  try { if (window.STRIDE_BF_ARM && window.strideClarity) window.strideClarity('', { bf_arm: window.STRIDE_BF_ARM }); } catch (e) {}
   // The hero quote test: the same tag for its side, and the quote for the phones on 'quote'.
   try {
     var quoteArm = strideQuoteArm();
@@ -5519,6 +5550,7 @@ function openBuy() { toggleBuyModal(); }
         out.bump_arm = strideBumpArm();
         var quoteArm = strideQuoteArm();        // the hero quote test: phones only
         if (quoteArm) out.quote_arm = quoteArm;
+        if (window.STRIDE_BF_ARM) out.bf_arm = window.STRIDE_BF_ARM;     // the 30%'s A/B (2026-11-11): baked | popup
         return out;
     }
 
@@ -5555,9 +5587,10 @@ function openBuy() { toggleBuyModal(); }
     // Whoever takes Tendril meets the Collection after checkout instead (/post2/, see
     // strideSuccessUrl and /tendril/'s head). STRIDE_BUMP_TEST 'ab' is the test; 'collection' or
     // 'tendril' puts everyone on that side, which is how the test ends.
-    // Since 2026-11-07 the bump is the Stride Bundle ('bundle') for every visitor while Black Friday runs (STRIDE_BF) and
-    // its discount exists; the test's two sides come back by themselves after it (nothing about the bundle is stored).
-    const STRIDE_BUMP_TEST = (window.STRIDE_BF && /^dsc_[a-z0-9]{26}$/.test(STRIDE_BUNDLE_DISCOUNT)) ? 'bundle' : 'ab';
+    // Since 2026-11-07 the bump is the Stride Bundle ('bundle') for every visitor while Black Friday runs (STRIDE_BF_ON,
+    // both sides of the 30%'s A/B since 2026-11-11) and its discount exists; the test's two sides come back by themselves
+    // after it (nothing about the bundle is stored).
+    const STRIDE_BUMP_TEST = (window.STRIDE_BF_ON && /^dsc_[a-z0-9]{26}$/.test(STRIDE_BUNDLE_DISCOUNT)) ? 'bundle' : 'ab';
     const TENDRIL_ADDON_PRICE = 49;       // dollars; Paddle's own price per country replaces it
     const BUNDLE_PERCENT = 45.48;         // the Stride Bundle's discount, for the dollar figures before Paddle answers
     let strideBumpArmMemo = '';
@@ -5894,16 +5927,26 @@ function openBuy() { toggleBuyModal(); }
             zh: ['Stride 7折', '黑色十一月促销', '距结束', '天']
         }[lang] || ['30% OFF Stride', 'Black November Promotion', 'Ends in', 'd'];
     }
+    // On the popup's side of the 30%'s A/B (2026-11-11, STRIDE_BF_ARM 'popup', no 30% baked in) the bar stays (Yossi:
+    // "of course the strip can stay there, so it is also 48 hours") and follows this browser's own offer, as the popup's
+    // script reads it (strideBfBarLook): before the email no clock (no clock before the email, Google 2026-10-20) and a
+    // press opens the popup, their 48 hours starting there if they had not; once their code is the page's code it counts
+    // that code's own 48 hours down and a press opens the buy form, as on the other side; no bar once the offer is over on
+    // this browser. Drawn once a page, from strideReadCode on the baked side and from the popup's script on this one.
     function strideBfBar() {
         var bar = document.getElementById('bfbar');
         var end = Number(window.STRIDE_BF_END) || 0;
-        if (!bar || !window.STRIDE_BF || !(end > Date.now())) return;
+        var popupSide = !window.STRIDE_BF && window.STRIDE_BF_ARM === 'popup' && typeof window.strideBfBarLook === 'function';
+        if (!bar || !(window.STRIDE_BF || popupSide) || !(end > Date.now())) return;
+        if (bar.hasAttribute('data-drawn')) return;
+        bar.setAttribute('data-drawn', '');
         var W = strideBfWords();
         var two = function (n) { return (n < 10 ? '0' : '') + n; };
         var el = function (tag, cls, text) { var n = document.createElement(tag); n.className = cls; if (text) n.textContent = text; return n; };
         var ends = el('span', 'bfbar-ends');
         var clock = el('b', 'bfbar-clock');
-        ends.appendChild(el('span', 'bfbar-k', W[2]));
+        var endsWord = el('span', 'bfbar-k', W[2]);
+        ends.appendChild(endsWord);
         ends.appendChild(clock);
         // The bar is a button since 2026-11-08: it opens the two deals (strideBfDealOpen). The arrow says so on a
         // phone, where nothing hovers.
@@ -5914,18 +5957,44 @@ function openBuy() { toggleBuyModal(); }
         bar.appendChild(el('span', 'bfbar-off', W[0]));
         bar.appendChild(el('span', 'bfbar-promo', W[1]));
         bar.appendChild(ends);
-        bar.hidden = false;
-        document.documentElement.classList.add('has-bfbar');
+        var show = function (on) {
+            bar.hidden = !on;
+            document.documentElement.classList.toggle('has-bfbar', on);
+        };
+        show(!popupSide || !!window.strideBfBarLook().look);
+        // The popup's side, before the email: the popup. Otherwise the buy form (strideBfDealOpen).
+        var press = function () {
+            if (popupSide && window.strideBfBarLook().look === 'offer'
+                && window.strideBfPopupOpen && window.strideBfPopupOpen('bar')) return;
+            strideBfDealOpen();
+        };
         if (!bar.hasAttribute('data-deal')) {
             bar.setAttribute('data-deal', '');
             bar.classList.add('bfbar-go');
             bar.setAttribute('role', 'button');
             bar.setAttribute('tabindex', '0');
             bar.setAttribute('aria-haspopup', 'dialog');
-            bar.addEventListener('click', function () { strideBfDealOpen(); });
+            bar.addEventListener('click', press);
             bar.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); strideBfDealOpen(); }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); press(); }
             });
+        }
+        if (popupSide) {
+            (function tickOwn() {
+                if (!(end > Date.now())) { try { window.location.reload(); } catch (e) {} return; }
+                var l = window.strideBfBarLook();
+                show(!!l.look);
+                var counting = l.look === 'code';
+                endsWord.style.display = counting ? '' : 'none';
+                clock.style.display = counting ? '' : 'none';
+                if (counting) {
+                    // In hours, as the popup and the code line count a 48-hour code ("47:59:59").
+                    var s = Math.max(0, Math.floor((l.ends - Date.now()) / 1000));
+                    clock.textContent = two(Math.floor(s / 3600)) + ':' + two(Math.floor(s / 60) % 60) + ':' + two(s % 60);
+                }
+                setTimeout(tickOwn, 1000 - (Date.now() % 1000));
+            })();
+            return;
         }
         (function tick() {
             var left = end - Date.now();
@@ -7176,6 +7245,7 @@ function openBuy() { toggleBuyModal(); }
                 custom.bump_arm = strideBumpArm();      // the order bump test, as on the wallet
                 var _quoteArm = strideQuoteArm();       // the hero quote test: phones only
                 if (_quoteArm) custom.quote_arm = _quoteArm;
+                if (window.STRIDE_BF_ARM) custom.bf_arm = window.STRIDE_BF_ARM;   // the 30%'s A/B (2026-11-11)
 
                 // The express button holds an INLINE checkout instance, and Paddle
                 // allows only one at a time. Without this close, every buyer who
@@ -7407,6 +7477,8 @@ function openBuy() { toggleBuyModal(); }
                 consent_region: (window.strideConsentRegion ? window.strideConsentRegion() : ''),
                 // The order bump test: which bump this checkout was offered, and whether it is in.
                 bump_arm: strideBumpArm(), bump: strideBumpIn(),
+                // The 30%'s A/B (2026-11-11): baked | popup.
+                bf_arm: window.STRIDE_BF_ARM || '',
                 terms_accepted: termsAccepted,
             })
         }).catch(() => {});
@@ -8325,6 +8397,7 @@ function openBuy() { toggleBuyModal(); }
         body.lang = lang;
         body.pin_arm = PIN_ARM;             // the pin's A/B: its side, and whether the pin brought them back
         body.via_pin = viaPin;
+        body.bf_arm = window.STRIDE_BF_ARM || '';   // the 30%'s A/B (2026-11-11): a claim comes from the popup's side
         var again = function () {
             sending = false;
             if (refs.go) { refs.go.disabled = false; refs.go.textContent = t('go'); }
@@ -8520,7 +8593,41 @@ function openBuy() { toggleBuyModal(); }
         setInterval(paintBuy, 1000);
     }
 
+    // ── the bar across the top, on the popup's side of the A/B (2026-11-11) ───
+    // There is no 30% baked in on that side (STRIDE_BF_ARM 'popup'), so the bar follows this offer (strideBfBar):
+    // 'code' while their 30% code is the page's code, a claim's own or the code mail's, with its end; 'wait' for the
+    // code mail's link before its answer; 'offer' while they can still leave their email (also before their first
+    // sight of it); '' once the offer is over on this browser. A press on the 'offer' bar opens the popup the way the
+    // buy form's ticket does: their 48 hours start there if they had not, and the counters see it.
+    if (window.STRIDE_BF_ARM === 'popup' && !window.STRIDE_BF) {
+        window.strideBfBarLook = function () {
+            var ends = bfCodeEnds();
+            if (!(ends > Date.now()) && claimed()) ends = st.ends;     // their code, before apply() puts it on the page
+            if (ends > Date.now()) return { look: 'code', ends: ends };
+            if (MAIL_LINK) return { look: (typeof strideCodePending !== 'undefined' && strideCodePending) ? 'wait' : '' };
+            if (st.over) return { look: '' };
+            return { look: !st.seen || Date.now() < offerEnds() ? 'offer' : '' };
+        };
+        window.strideBfPopupOpen = function (from) {
+            if (claimed() || MAIL_LINK || st.over || (st.seen && Date.now() >= offerEnds())) return false;
+            if (!st.seen) {                 // their first sight of the offer: the 48 hours start here
+                st.seen = Date.now();
+                save();
+                stage('shown');
+                track('bf_popup_shown');
+            }
+            viaPin = false;
+            stage('reopened');
+            track('bf_popup_reopened', { from: from || 'bar' });
+            open();
+            return true;
+        };
+        try { strideBfBar(); } catch (e) {}
+    }
+
     // ── on arrival ────────────────────────────────────────────────────────────
+    // (Since 2026-11-11 this holds for the baked side of the A/B only; on the popup's side STRIDE_BF is not set and
+    // everything below runs as it did until 2026-11-07.)
     // Black Friday baked into the price (Yossi 2026-11-07): every visit holds EARLYBF30 already (STRIDE_BF, the
     // second script in <head>), so there is nothing to ask for and nothing to pin, and no first sight is written
     // down; the buy form's ticket above still shows, counting to the same end. Once that end has passed the
