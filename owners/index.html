@@ -166,17 +166,63 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
 .legal{margin-top:12px}
 .pay{margin-top:12px}
 
+/* Under the button: what each one is, in the words of /tendril/ and /collection/ (Yossi 2026-11-11: "under the CTA
+   there needs to be more detail about the products, take it from our site") */
+.more{margin-top:44px;padding-top:40px;border-top:1px solid var(--line)}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:44px}
+.mx{min-width:0}
+.mx .k{margin:0 0 8px;font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:800;color:var(--copper-lt)}
+.mx h2{font-size:clamp(22px,2.3vw,28px);line-height:1.15;font-weight:900;letter-spacing:-.005em;text-wrap:balance}
+.mx .lede{margin:12px 0 0;font-size:15.5px;line-height:1.65}
+.mx h3{margin:26px 0 0;color:var(--ink);font-size:17px;line-height:1.3;font-weight:900}
+.mx h3 + p{margin:6px 0 0;font-size:15px;line-height:1.6}
+.film{position:relative;margin-top:18px;border-radius:14px;overflow:hidden;background:#0e0d0b;border:1px solid var(--line);aspect-ratio:16/9}
+.film video{display:block;width:100%;height:100%;object-fit:cover}
+.fplay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:0;padding:0;cursor:pointer;
+  background:radial-gradient(circle at 50% 50%,rgba(0,0,0,.05),rgba(0,0,0,.35))}
+.fplay i{width:66px;height:66px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#1b1206;
+  background:linear-gradient(180deg,#f3a752,var(--ember) 48%,var(--copper));box-shadow:0 12px 30px -8px rgba(0,0,0,.7);transition:transform .15s}
+.fplay svg{width:22px;height:22px;margin-left:4px;fill:currentColor}
+.fplay:hover i{transform:scale(1.06)}
+.film-c{margin:8px 0 0;font-size:13px;color:var(--ink3)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:22px}
+.stats b{display:block;font-size:30px;line-height:1;font-weight:900;color:var(--ink)}
+.stats span{display:block;margin-top:5px;font-size:12px;line-height:1.3;color:var(--ink2)}
+.lines{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:9px;font-size:14.5px;line-height:1.55}
+.lines b{color:var(--ink);font-weight:800}
+.packs{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:16px}
+.packs li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:start}
+.packs .pc-disc{--disc:46px;width:46px;box-shadow:0 0 0 3px #24201a,0 0 0 4px rgba(216,201,176,.14)}
+.packs .pc-disc .w{font-size:6.5px;letter-spacing:.14em;margin-left:.14em}
+.packs .pn{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.packs .pn b{color:var(--ink);font-size:15px;font-weight:900}
+.packs .pn em{font-style:normal;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--copper-lt)}
+.packs p{margin:4px 0 0;font-size:14px;line-height:1.55}
+.packs p.plus{margin-top:3px;color:var(--copper-lt);font-weight:700;font-size:13.5px}
+.ph{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 11px 0 4px;border:0;border-radius:999px;background:var(--raise);color:var(--ink2);
+  font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.ph i{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--ember),var(--copper));color:#1b1206}
+.ph svg{width:8px;height:8px;fill:currentColor}
+.ph:hover{background:#2e2920;color:var(--ink)}
+.buy2{margin-top:44px;padding:22px;border-radius:18px;background:var(--bg2);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:14px 26px;flex-wrap:wrap}
+.buy2 .t2{margin:0;line-height:1.2}
+.buy2 .t2 s{margin-right:10px;font-size:17px;color:var(--ink3);font-weight:700;text-decoration-thickness:2px;text-decoration-color:rgba(221,154,82,.85)}
+.buy2 .t2 b{font-size:30px;font-weight:900;color:var(--ink)}
+.buy2 .t2 span{display:block;margin-top:6px;font-size:13px;font-weight:600;color:var(--ink3)}
+
 @media (prefers-reduced-motion:reduce){
   .dots i,.sk,.bft svg,.cta::after,.tot b.bump{animation:none}
   .dots i{opacity:.6}
 }
 
-/* Tablets: the button under the total */
+/* Tablets: the button under the total, the details one above the other */
 @media (max-width:900px){
   .buy-row{flex-wrap:wrap}
   .go{flex:1 1 100%}
   .cta{width:100%;min-width:0}
   .ask{width:100%}
+  .mgrid{grid-template-columns:1fr;gap:48px}
+  .buy2 .cta{width:100%}
 }
 /* Phones: one above the other, each card's name and price on one line, the total and the button always in reach */
 @media (max-width:759px){
@@ -221,6 +267,11 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
   .ask input{height:50px}
   .legal{margin-top:7px;font-size:11px;line-height:1.4}
   .pay{font-size:12px}
+  .more{margin-top:34px;padding-top:30px}
+  .mx .lede{font-size:15px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px}
+  .stats b{font-size:26px}
+  .buy2{margin:36px 0 0;padding:16px}
 }
 @media (max-width:380px){
   .nm h2{font-size:16.5px}
@@ -390,6 +441,88 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
       <p class="fine legal">The Collection is an instant download: by buying you ask for the files right away and agree that your 14-day right to cancel ends once the download starts. <a href="/refund.html">Refund policy</a></p>
     </div>
     <p class="fine pay">Checkout by Paddle, in your currency. Keys and downloads arrive by mail. Synths not included: each pack needs its own synth, and the racks need Ableton Live.</p>
+
+    <section class="more" data-more-info aria-label="What you get">
+      <div class="mgrid">
+        <article class="mx" data-mx="tendril">
+          <p class="k">Tendril</p>
+          <h2>Three engines. One evolving sound design playground.</h2>
+          <p class="lede">Shape the harmonics, push the effects, and let three independent patterns play off each other, or flip one lever and play all three as a single synth. Explore with Stride to discover fresh sounds, mudpies and sequences from the same patch.</p>
+          <div class="film">
+            <video playsinline preload="none" poster="/media/tendril/showcase/poster.webp" width="1920" height="1080" aria-label="Tendril showcase: sounds played inside Stride">
+              <source src="/media/tendril/showcase/tendril-examples-720.mp4" type="video/mp4">
+            </video>
+            <button type="button" class="fplay" data-fplay aria-label="Play the Tendril showcase"><i><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z"/></svg></i></button>
+          </div>
+          <p class="film-c">Sounds straight out of Tendril, played inside Stride. Turn your sound on.</p>
+          <div class="stats">
+            <div><b>64</b><span>Partials per note</span></div>
+            <div><b>8</b><span>Motion lanes per engine</span></div>
+            <div><b>3</b><span>Patterns at once</span></div>
+            <div><b>48</b><span>Semitones of bend</span></div>
+          </div>
+          <h3>Shape the sound. Keep it moving.</h3>
+          <p>Ten knobs reshape the harmonics at the source, and every one can move. Each of the three engines has its own sound, effects and sequencer row, so tone and rhythm keep evolving together.</p>
+          <h3>Bend it before it ever hits a filter.</h3>
+          <p>SPECTRUM and SHAPE OSC FX fold and sieve the waveform at the source. Then BODY, DRIVE and FILTER, and GLITCH and SHARDS to break it into repeats and echo bursts.</p>
+          <h3>A sequencer that plays all three.</h3>
+          <p>Each engine gets its own row: velocity, chance, ratchets and notes per step, eight patterns deep. Three lengths running against each other turn one bar into a phrase. Take the sequence into your DAW as a MIDI clip when it lands.</p>
+          <h3>One lever turns the three into a synth.</h3>
+          <p>Push it to SYNTH and every note plays all three engines, on any key, each with its own sound and effects. Draw the amp envelope with points and curves, send the pitch wheel up to 48 semitones either way, and hold a chord while it all moves.</p>
+          <h3>Built to be explored with Stride.</h3>
+          <p>Tendril brings the sound engines, effects and patterns. Stride lets you try fresh motion across the parameters you map, lock what works and regenerate the rest. 22 StrideChains come ready: Tendril sounds, sequences and Stride mappings already connected.</p>
+          <h3>What you get</h3>
+          <ul class="lines">
+            <li>Tendril for Windows (VST3 and Standalone) and macOS (VST3, AU and Standalone)</li>
+            <li>22 StrideChains for Tendril: sound design systems ready to load in Stride and explore</li>
+            <li>14 factory sounds and 4 factory kits, with patterns ready in the sequencer</li>
+            <li>Your own license key, for two computers</li>
+            <li>One-time purchase. Yours to keep.</li>
+          </ul>
+        </article>
+
+        <article class="mx" data-mx="coll">
+          <p class="k">The Stride Collection</p>
+          <h2>Sound design systems with the motion already built in.</h2>
+          <p class="lede">120 StrideChains for Serum 2, Vital, Diva and Tendril, each one mapped for Stride: lanes set, ranges chosen, the core knobs locked and five states to start from. 66 of them play Stride original wavetables. Plus 250+ experimental sounds and 15 Ableton racks.</p>
+          <div class="film">
+            <video playsinline preload="none" poster="/media/collection/film/poster-1280.webp" width="1920" height="1080" aria-label="The Stride Collection showcase: a StrideChain in Stride, through its five states">
+              <source src="/media/collection/film/collection-showcase-1080.mp4" type="video/mp4">
+            </video>
+            <button type="button" class="fplay" data-fplay aria-label="Play the Stride Collection showcase"><i><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z"/></svg></i></button>
+          </div>
+          <p class="film-c">A StrideChain in Stride, through its five states.</p>
+          <ul class="packs">
+            <li data-pack="serum"><span class="pc-disc" style="--a:#2f8fb0;--b:#0c171d" aria-hidden="true"><img class="wide" src="/media/synths/serum-2.webp" alt=""></span>
+              <div><div class="pn"><b>Serum 2</b><em>40 StrideChains</em><button type="button" class="ph" data-hear="serum" aria-pressed="false" aria-label="Hear the Serum 2 pack"><i></i>Hear it</button></div>
+                <p>26 chains play Stride original wavetables, built in: reeses, mouths, glass, strings and the Collection's own samples through Serum 2's filters, warps and FX. 14 run on Serum 2's own granular and spectral engines.</p>
+                <p class="plus">+ all 111 Stride wavetables, for your own patches</p></div></li>
+            <li data-pack="vital"><span class="pc-disc" style="--a:#7b5cd6;--b:#130f21" aria-hidden="true"><img src="/media/synths/vital.webp" alt=""></span>
+              <div><div class="pn"><b>Vital</b><em>40 StrideChains</em><button type="button" class="ph" data-hear="vital" aria-pressed="false" aria-label="Hear the Vital pack"><i></i>Hear it</button></div>
+                <p>Every chain plays Stride original wavetables, built in, through Vital's spectral and wave morphs.</p>
+                <p class="plus">+ all 111 Stride wavetables, for your own patches</p></div></li>
+            <li data-pack="diva"><span class="pc-disc" style="--a:#a4763f;--b:#15110d" aria-hidden="true"><img src="/media/synths/diva.webp" alt=""></span>
+              <div><div class="pn"><b>Diva</b><em>20 StrideChains</em><button type="button" class="ph" data-hear="diva" aria-pressed="false" aria-label="Hear the Diva pack"><i></i>Hear it</button></div>
+                <p>Triple VCO, DCO and Digital oscillators into the Ladder, Cascade, BITE and Uhbie filters.</p></div></li>
+            <li data-pack="tendril"><span class="pc-disc" style="--a:#c6712b;--b:#1a0f07" aria-hidden="true"><span class="w">TENDRIL</span></span>
+              <div><div class="pn"><b>Tendril</b><em>20 StrideChains</em><button type="button" class="ph" data-hear="ptendril" aria-pressed="false" aria-label="Hear the Tendril pack"><i></i>Hear it</button></div>
+                <p>Ten play like a synth, all three engines on every key; ten run Tendril's sequencer under Stride's clock.</p></div></li>
+            <li data-pack="sounds"><span class="pc-disc art" aria-hidden="true"><img src="/media/synths/sounds-racks.webp" alt=""></span>
+              <div><div class="pn"><b>Sounds &amp; Racks</b><em>250+ sounds &middot; 15 racks</em><button type="button" class="ph" data-hear="sounds" aria-pressed="false" aria-label="Hear the Sounds &amp; Racks"><i></i>Hear it</button></div>
+                <p>250+ sounds from broken drums, one falling water drop and a simple signal pushed into endless feedback, and 15 Ableton Racks that move with Stride FX.</p></div></li>
+          </ul>
+          <h3>Every StrideChain is a sound design system.</h3>
+          <p>Not a preset with a few knobs on a lane. Each chain was built as one piece: the patch, the lanes that move it, the range of every lane, the knobs that stay locked and five states that each take the sound somewhere new. Every state opens into everything Stride does: mutate a lane, redraw it, lock what you love.</p>
+          <h3>Synths not included.</h3>
+          <p>Each pack needs your own copy of its synth: Serum 2, Vital, Diva or Tendril. The chains open in Stride, and the racks need Ableton Live.</p>
+        </article>
+      </div>
+
+      <div class="buy2">
+        <p class="t2"><s data-was2 hidden></s><b data-now2></b><span>Half price for Stride owners, until the end of November.</span></p>
+        <button type="button" class="cta" data-buy2><span data-buy2a>Get both</span><span class="dot" data-buy2d>&middot;</span><span data-buy2p></span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11M11 5.5l4.5 4.5-4.5 4.5"/></svg></button>
+      </div>
+    </section>
   </section>
 
   <section id="done" hidden>
@@ -419,7 +552,9 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
   // charges when nothing of it is owned). Half of what Paddle quotes this visitor, rounded half up (_owners_cut).
   var PRICE = { tendril: 'pri_01m5hgws7pfwwg4yevje6ajqrp', whole: 'pri_01m6nnycexzy151nynszqdn87n' };
   var USD = { tendril: 4900, whole: 6900 };   // Paddle's base prices, shown only if its preview never answers
-  var REELS = { tendril: '/assets/packs/reel-tendril.mp3', coll: '/assets/packs/collection-teaser.mp3' };
+  var REELS = { tendril: '/assets/packs/reel-tendril.mp3', coll: '/assets/packs/collection-teaser.mp3',
+                serum: '/assets/packs/reel-serum.mp3', vital: '/assets/packs/reel-vital.mp3', diva: '/assets/packs/reel-diva.mp3',
+                ptendril: '/assets/packs/reel-tendril.mp3', sounds: '/assets/packs/collection-teaser.mp3' };
   // Each part's disc, as on /collection/ and /post2.
   var LOOK = {
     serum:   { logo: '/media/synths/serum-2.webp', wide: true, a: '#2f8fb0', b: '#0c171d' },
@@ -657,6 +792,16 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
     var p = priced && t.any ? money(t.now, t.currency) : '';
     q('[data-buyp]').textContent = p;
     q('[data-buyd]').hidden = !p;
+    // The same button again at the end of the details, with the same total.
+    var b2 = q('[data-buy2]');
+    b2.disabled = !t.any;
+    q('[data-buy2a]').textContent = q('[data-buyl]').textContent;
+    q('[data-buy2p]').textContent = p;
+    q('[data-buy2d]').hidden = !p;
+    var was2 = q('[data-was2]');
+    was2.hidden = !showWas;
+    was2.textContent = showWas ? money(t.was, t.currency) : '';
+    q('[data-now2]').textContent = priced ? money(t.any ? t.now : 0, t.currency) : '';
   }
   function draw(bump) { drawCard('tendril'); drawColl(); drawCard('coll'); drawTotals(bump); }
 
@@ -677,6 +822,7 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
         audio.addEventListener('ended', function () { playing = ''; syncHear(); });
       }
       if (playing === key) { audio.pause(); playing = ''; syncHear(); return; }
+      qa('video').forEach(function (v) { if (!v.paused) v.pause(); });   // one sound at a time
       audio.src = REELS[key];
       playing = key;
       syncHear();
@@ -685,6 +831,22 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
     } catch (e) { playing = ''; syncHear(); }
   }
   syncHear();
+  // A showcase shows its poster and one big play button; the press gives it its controls and plays it.
+  qa('[data-fplay]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var v = b.parentNode.querySelector('video');
+      b.hidden = true;
+      v.controls = true;
+      try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+    });
+  });
+  // A showcase that starts playing stops a preview, and the other showcase.
+  qa('video').forEach(function (v) {
+    v.addEventListener('play', function () {
+      if (audio && playing) { audio.pause(); playing = ''; syncHear(); }
+      qa('video').forEach(function (o) { if (o !== v && !o.paused) o.pause(); });
+    });
+  });
 
   // ── Select / Remove: a press anywhere on a card ──────────────────────────────
   var busy = false, paid = false, seen = false;
@@ -709,7 +871,7 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
   // ── Buying ──────────────────────────────────────────────────────────────────
   function setBusy(on) {
     busy = on;
-    [q('[data-buy]'), q('[data-ask] button')].forEach(function (b) {
+    [q('[data-buy]'), q('[data-ask] button'), q('[data-buy2]')].forEach(function (b) {
       if (on) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');
     });
   }
@@ -740,12 +902,19 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
         err("Couldn't reach the checkout. Check your connection and try again.");
       });
   }
-  q('[data-buy]').addEventListener('click', function () {
+  function press(fromEnd) {
     if (busy || !total().any) return;
-    if (!K) { openAsk(); return; }
+    if (!K) {
+      // The address is asked where the first button is: the end's button brings the visitor there.
+      if (fromEnd) { try { q('[data-buybox]').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }
+      openAsk();
+      return;
+    }
     if (!ownerPriced) { reprice(); return; }
     checkout();
-  });
+  }
+  q('[data-buy]').addEventListener('click', function () { press(false); });
+  q('[data-buy2]').addEventListener('click', function () { press(true); });
 
   // ── No token: the address Stride was bought with, asked at the button ────────
   var askForm = q('[data-ask]');
@@ -822,6 +991,7 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
     if (paid) return;
     paid = true;
     if (audio) { try { audio.pause(); } catch (e) {} }
+    qa('video').forEach(function (v) { try { v.pause(); } catch (e) {} });
     show('done');
     // Anything they left out is still theirs to take until the end of November.
     setTimeout(function () {
