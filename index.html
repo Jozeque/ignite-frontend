@@ -1358,7 +1358,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .proof-nav.proof-counted .proof-dots{display:none}
   .proof-nav.proof-counted .proof-count{display:block}
   /* The reels strip above the quotes (#reels): /why-stride's reels at about two thirds of their size.
-     From 900px up five cards of at most 172px, centred; 700 to 900 the five share the width (128px
+     From 900px up six cards of at most 172px, centred; below that they share the width (128px
      at least, so the sound button keeps its words) and the row bleeds to the screen edges like the
      quotes; on a phone each is 35% of the screen, two and part of the third in view. The first and
      last cards' auto margins centre the row while it fits and fall to 0 once it scrolls, so the
@@ -3514,8 +3514,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <!-- REELS (Yossi 2026-11-11: "put it on the homepage too, small, above the text reviews, as a
-         strip"). The five reels of /why-stride (src/lib/why.ts), same videos, posters, names and
-         sound button, smaller: five across from about 730px, on a phone two and part of the third, swiped
+         strip"; KUNI's reel added 2026-11-12). The six reels of /why-stride (src/lib/why.ts), same
+         videos, posters, names, order and sound button, smaller: six across from 900px, on a phone two
+         and part of the third, swiped
          like the quotes below. Each plays muted on a loop while it is mostly on screen and rests
          when it leaves; a press gives one reel its sound from the start, and only one ever has it.
          Nothing loads early: the posters come when the strip is near, a video only once it plays.
@@ -3591,6 +3592,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="silk reel-role" id="reel-r5">Producer</p>
         </figcaption>
       </figure>
+      <figure class="reel">
+        <div class="reel-frame">
+          <video src="/media/why/kuni.mp4" data-poster="/media/why/kuni.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n6 reel-r6"></video>
+          <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n6">
+            <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+            <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+            <span class="reel-off">Tap for sound</span><span class="reel-still">Play with sound</span><span class="reel-on">Sound on</span>
+          </button>
+        </div>
+        <figcaption>
+          <p class="reel-name" id="reel-n6" data-no-translate>KUNI</p>
+          <p class="silk reel-role" id="reel-r6">Bush Tech &amp; Downtempo</p>
+        </figcaption>
+      </figure>
     </div>
     <script>
     // The reels' playing rules, the same as /why-stride's (src/components/CreativeRail.tsx): a reel
@@ -3634,7 +3649,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         var t = e.target;
         if (t && (t.tagName === 'VIDEO' || t.tagName === 'AUDIO') && !t.muted && vids.indexOf(t) < 0) hush();
       }, true);
-      // The five posters (about 385 KB) wait for the page to finish loading and for the strip to come
+      // The six posters (about 500 KB) wait for the page to finish loading and for the strip to come
       // within 800px, so they never compete with the hero on a phone's first screen.
       function posters() {
         vids.forEach(function (v) { var p = v.getAttribute('data-poster'); if (p && !v.getAttribute('poster')) v.setAttribute('poster', p); });
