@@ -125,6 +125,8 @@
       if (!navigator.sendBeacon) return;
       var v = read(), body = { action: 'pv', p: v.p, c: v.c, a: v.a };
       if (v.m) body.m = 1;
+      // The 30%'s A/B (2026-11-11): the side this browser is on, set by the script in <head> that picks it.
+      if (window.STRIDE_BF_ARM) body.x = window.STRIDE_BF_ARM;
       navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
     } catch (e) {}
   }
@@ -135,7 +137,9 @@
       var s = STEP[name];
       if (!s || pressed[s] || !navigator.sendBeacon) return;
       pressed[s] = 1;
-      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'fs', s: s, c: read().c }));
+      var fs = { action: 'fs', s: s, c: read().c };
+      if (window.STRIDE_BF_ARM) fs.x = window.STRIDE_BF_ARM;     // the 30%'s A/B side, as on the page view
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(fs));
     } catch (e) {}
   };
   if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });

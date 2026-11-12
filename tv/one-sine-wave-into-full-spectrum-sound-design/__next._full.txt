@@ -431,7 +431,7 @@ e:I[68027,["/_next/static/chunks/1mpnoxox0-4cg.js"],"default",1]
 2f:I[16857,["/_next/static/chunks/1mpnoxox0-4cg.js","/_next/static/chunks/36ttvcxnarzf-.js"],"CtaPanelClient"]
 30:I[27201,["/_next/static/chunks/1mpnoxox0-4cg.js"],"IconMark"]
 c:X
-0:{"P":null,"c":["","tv","one-sine-wave-into-full-spectrum-sound-design"],"q":"","i":false,"f":[[["",{"children":["tv",{"children":[["slug","one-sine-wave-into-full-spectrum-sound-design","d",[]],{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/2od8_80_t33q7.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","style",null,{"dangerouslySetInnerHTML":{"__html":"html.sd-hold .sd-cta-price,html.sd-hold .sd-price{visibility:hidden;opacity:0}.sd-cta-price,.sd-price{transition-property:opacity;transition-duration:.15s}"}}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$3"}}],"$L4","$undefined","$L5","$L6","$L7"]}],"$L8"]}]]}],{"children":["$L9",{"children":["$La",{"children":["$Lb",{},null,false,null]},null,false,"$c"]},null,false,"$c"]},null,false,null],"$Ld",false]],"m":"$undefined","G":["$e",["$Lf"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"wVYPwUnG7Y8vy9qQO8rEn"}
+0:{"P":null,"c":["","tv","one-sine-wave-into-full-spectrum-sound-design"],"q":"","i":false,"f":[[["",{"children":["tv",{"children":[["slug","one-sine-wave-into-full-spectrum-sound-design","d",[]],{"children":["__PAGE__",{},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4608]},"$undefined","$undefined",4624],[["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/2od8_80_t33q7.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/_next/static/chunks/1mpnoxox0-4cg.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","className":"dark outfit_c8e75115-module__GXCCoG__variable space_mono_d8eecc30-module__bEIZiG__variable","children":[["$","head",null,{"children":[false,["$","style",null,{"dangerouslySetInnerHTML":{"__html":"html.sd-hold .sd-cta-price,html.sd-hold .sd-price{visibility:hidden;opacity:0}.sd-cta-price,.sd-price{transition-property:opacity;transition-duration:.15s}"}}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$2"}}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$3"}}],"$L4","$undefined","$L5","$L6","$L7"]}],"$L8"]}]]}],{"children":["$L9",{"children":["$La",{"children":["$Lb",{},null,false,null]},null,false,"$c"]},null,false,"$c"]},null,false,null],"$Ld",false]],"m":"$undefined","G":["$e",["$Lf"]],"S":true,"h":null,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"8kUWcUnT7HfO8-Bvai8y8"}
 4:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':\nnew Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],\nj=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=\n'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);\n})(window,document,'script','dataLayer','GTM-5R4N7FVP');"}}]
 5:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', 'G-JCMEXN70CM');\n"}}]
 10:T1325,
@@ -513,7 +513,7 @@ c:X
         } catch (e) {}
     })();
 6:["$","script",null,{"dangerouslySetInnerHTML":{"__html":"$10"}}]
-11:Td1e,(function () {
+11:Te49,(function () {
   var view = null, pressed = {};
   // This page view: its page key, channel, ad id and Meta-id flag, read once.
   function read() {
@@ -552,6 +552,8 @@ c:X
       if (!navigator.sendBeacon) return;
       var v = read(), body = { action: 'pv', p: v.p, c: v.c, a: v.a };
       if (v.m) body.m = 1;
+      // The 30%'s A/B (2026-11-11): the side this browser is on, set by the script in <head> that picks it.
+      if (window.STRIDE_BF_ARM) body.x = window.STRIDE_BF_ARM;
       navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
     } catch (e) {}
   }
@@ -562,7 +564,9 @@ c:X
       var s = STEP[name];
       if (!s || pressed[s] || !navigator.sendBeacon) return;
       pressed[s] = 1;
-      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify({ action: 'fs', s: s, c: read().c }));
+      var fs = { action: 'fs', s: s, c: read().c };
+      if (window.STRIDE_BF_ARM) fs.x = window.STRIDE_BF_ARM;     // the 30%'s A/B side, as on the page view
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(fs));
     } catch (e) {}
   };
   if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });

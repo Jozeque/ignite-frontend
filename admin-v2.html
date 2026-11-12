@@ -537,6 +537,11 @@ const EBF_KEYS = ['shown', 'folded', 'reopened', 'failed', 'claims', 'sales', 'u
 // and those codes' sales (health.build_early_bf's pin).
 let EBF_PIN = [];
 const EBF_PIN_KEYS = ['folded', 'reopened', 'claims', 'sales', 'usd'], EBF_PIN_ARMS = ['ticket', 'pill'];
+// The 30%'s A/B on the homepage (2026-11-11) per day and side, { baked: {views, cta, pay, co, claims, sales, usd, bundle,
+// codes}, popup }: homepage views and buy-path presses from our cookieless counts, the popup's codes, Paddle's orders by
+// the side their checkout said (health.build_bf_ab). BFAB_FROM is the test's first day; BFAB_EXACT, Paddle answered.
+let BFAB = [], BFAB_FROM = null, BFAB_EXACT = false;
+const BFAB_KEYS = ['views', 'cta', 'pay', 'co', 'claims', 'sales', 'usd', 'bundle', 'codes'], BFAB_ARMS = ['baked', 'popup'];
 // Whether the backend said how each ad's link names the ad (health.link_tag: 'ad_id', 'meta',
 // 'none'), the day the site began reading ad ids from Meta's own utm_content (the first day of
 // pv_meta_ids, read only from the publish on) and the first whole day after it.
@@ -614,6 +619,9 @@ function ingest(p) {
   EBF_MATCH = (p.early_bf || {}).match || null;
   EBF_PIN = Array.from({ length: DAYS }, () => Object.fromEntries(EBF_PIN_ARMS.map(a => [a, Object.fromEntries(EBF_PIN_KEYS.map(k => [k, 0]))])));
   for (const [d, v] of Object.entries((p.early_bf || {}).days || {})) { const i = DI[d]; if (i != null && v.pin) for (const a of EBF_PIN_ARMS) EBF_PIN[i][a] = Object.fromEntries(EBF_PIN_KEYS.map(k => [k, +((v.pin[a] || {})[k]) || 0])); }
+  BFAB = Array.from({ length: DAYS }, () => Object.fromEntries(BFAB_ARMS.map(a => [a, Object.fromEntries(BFAB_KEYS.map(k => [k, 0]))])));
+  for (const [d, v] of Object.entries((p.bf_ab || {}).days || {})) { const i = DI[d]; if (i != null) for (const a of BFAB_ARMS) BFAB[i][a] = Object.fromEntries(BFAB_KEYS.map(k => [k, +((v[a] || {})[k]) || 0])); }
+  BFAB_FROM = (p.bf_ab || {}).from || null; BFAB_EXACT = !!(p.bf_ab || {}).exact;
   const states = (p.flows || {}).flows || {};
   // c1: purchases this mail was the last before (each purchase once); q: purchases within
   // mail.at_once_min of an instant mail, shown apart and never a goal.
@@ -1420,6 +1428,58 @@ function ebfCardHTML(c) {
     <p class="note" style="margin-top:10px">${esc(how)}. A code lasts 48 hours, so a claim late in the range can still turn into a sale after it.</p>${ab}`);
 }
 
+// The 30%'s A/B on the homepage (2026-11-11, Yossi: "an A/B test: A exactly as it is today, B exactly as it was with the
+// 48-hour popup"; 2026-11-12: "I want to see results and a dashboard of this A/B test in admin v2"). One side per browser,
+// 50/50, kept; every channel, like the Early Black Friday card. Who sells more per homepage view, and how sure: two
+// proportions (sales out of views), a normal approximation, called only once each side has a few sales.
+function bfabCardHTML(c) {
+  const sum = a => c.idx.reduce((t, i) => { const x = (BFAB[i] || {})[a] || {}; for (const k of BFAB_KEYS) t[k] += x[k] || 0; return t; },
+    Object.fromEntries(BFAB_KEYS.map(k => [k, 0])));
+  const A = sum('baked'), B = sum('popup');
+  const title = 'The 30% A/B: popup vs 30% for everyone';
+  const sub = 'the homepage since Nov 11, every channel; half the browsers each, kept';
+  if (!(A.views + B.views + A.sales + B.sales + B.claims)) {
+    return card(title, sub, `<p class="note">Nothing in this range yet. The test runs from ${esc(BFAB_FROM || '2026-11-11')}: pick a range that includes it.</p>`);
+  }
+  const of = (n, d) => d ? fmt.pct(n / d) : '—';
+  const per1k = (n, v) => v ? n / v * 1000 : null;
+  const row = (x, name, what, isB) => `<tr><td>${name}<small class="subj">${what}</small></td>
+    <td>${fmt.num(x.views)}</td>
+    <td>${fmt.num(x.cta)}<small class="subj">${of(x.cta, x.views)} of views</small></td>
+    <td>${fmt.num(x.co)}<small class="subj">${of(x.co, x.views)} of views</small></td>
+    <td>${isB ? `${fmt.num(x.claims)}<small class="subj">${of(x.claims, x.views)} of views</small>` : '—'}</td>
+    <td><b>${fmt.num(x.sales)}</b>${isB && x.codes ? `<small class="subj">${fmt.num(x.codes)} paid with a popup code</small>` : ''}</td>
+    <td>${x.views ? per1k(x.sales, x.views).toFixed(2) : '—'}</td>
+    <td>${fmt.usd0(x.usd)}</td>
+    <td>${x.views ? fmt.usd(per1k(x.usd, x.views)) : '—'}</td>
+    <td>${fmt.num(x.bundle)}</td></tr>`;
+  const cdf = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2);
+    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; };
+  const verdict = (() => {
+    if (!A.views || !B.views) return `<b>Per-view rates start with the views.</b> The homepage counts views per side from the day the site sends them; until then compare the sales alone (${fmt.num(A.sales)} on A, ${fmt.num(B.sales)} on B).`;
+    const pa = A.sales / A.views, pb = B.sales / B.views;
+    if (Math.min(A.sales, B.sales) < 5) return `<b>Too early to call.</b> ${fmt.num(A.sales + B.sales)} sales so far (${fmt.num(A.sales)} on A, ${fmt.num(B.sales)} on B): read it again once each side has about 10.`;
+    const se = Math.sqrt(pa * (1 - pa) / A.views + pb * (1 - pb) / B.views);
+    const pB = se ? cdf((pb - pa) / se) : 0.5, sure = Math.max(pB, 1 - pB);
+    const lead = pb >= pa ? 'B, the popup,' : 'A, 30% for everyone,';
+    const lift = Math.min(pa, pb) ? Math.abs(pb - pa) / Math.min(pa, pb) : null;
+    return `<b>${lead} sells more per homepage view</b>${lift != null ? `, by ${fmt.pct(lift)}` : ''}: ${fmt.pct(sure)} sure`
+      + (sure >= 0.95 ? ' (a clear result)' : sure >= 0.8 ? ' (leaning, not settled)' : ' (could still be chance)') + '.';
+  })();
+  const dayRows = c.idx.filter(i => BFAB_ARMS.some(a => { const y = (BFAB[i] || {})[a] || {}; return y.views || y.sales || y.claims || y.cta; }))
+    .map(i => { const a = BFAB[i].baked, b = BFAB[i].popup;
+      return `<tr><td>${shortDate(dates[i])}</td><td>${fmt.num(a.views)}</td><td>${fmt.num(a.cta)}</td><td>${fmt.num(a.sales)}</td><td>${fmt.usd0(a.usd)}</td>`
+        + `<td>${fmt.num(b.views)}</td><td>${fmt.num(b.cta)}</td><td>${fmt.num(b.claims)}</td><td>${fmt.num(b.sales)}</td><td>${fmt.usd0(b.usd)}</td></tr>`; }).join('');
+  return card(title, sub,
+    `<p class="note" style="margin:0 0 10px">${verdict}</p>
+    <div class="tbl-wrap"><table class="tbl" id="bfab-table"><thead><tr><th>Side</th><th>Homepage views</th><th>Buy form opened</th><th>Checkout loaded</th><th>Popup codes</th><th>Sales</th><th>Sales per 1,000 views</th><th>Revenue</th><th>Revenue per 1,000 views</th><th>Bundles</th></tr></thead><tbody>
+      ${row(A, 'A · 30% for everyone', 'the page as it was Nov 7 to 11: $69.30 at once, the strip counting to Dec 1', false)}
+      ${row(B, 'B · the popup', 'the page as it was until Nov 7: $99 until an email, then a personal 30% code for 48 hours', true)}
+    </tbody></table></div>
+    ${dayRows ? `<h3 class="svy-h">Day by day</h3><div class="tbl-wrap"><table class="tbl" id="bfab-days"><thead><tr><th>Day</th><th>A views</th><th>A buy form</th><th>A sales</th><th>A revenue</th><th>B views</th><th>B buy form</th><th>B codes</th><th>B sales</th><th>B revenue</th></tr></thead><tbody>${dayRows}</tbody></table></div>` : ''}
+    <p class="note" style="margin-top:10px">Views and presses are our cookieless counts of the homepage, per side from the day the site began sending the side; sales are Paddle orders by the side their checkout said, from the test's start (Nov 11, 14:24 UTC), revenue net of tax before refunds. A sale paid with a popup code counts for B whatever device paid. ${BFAB_EXACT ? '' : '<b>Paddle did not answer this load, so no sales are shown.</b> '}Owners' offers, /tendril/ and the offers after a purchase are not in this test. A code lasts 48 hours, so a B code from late in the range can still sell after it.</p>`);
+}
+
 function renderLanding(c) {
   const el = $('p-landing'), A = c.A;
   const paid = F.channel === 'all' || F.channel === 'meta';
@@ -1443,6 +1503,7 @@ function renderLanding(c) {
     ${paid ? `<div class="card" id="arr-chart"><div class="card-h"><h2>Did the clicks arrive?</h2><span class="sub">${TAGS_READ ? 'a gap between the purple and green lines is people lost between the ad and the page; the blue line also holds the clicks our count cannot see' : 'a gap between the blue and green lines is people lost between the ad and the page'}</span></div><div></div></div>` : card('Did the clicks arrive?', '', '<p class="empty">Only Meta reports its clicks to us. Pick Meta ads or all channels.</p>')}
     ${card('Pages', `page views from our cookieless count; sessions, time and scroll from Clarity${srcOk('clarity') ? ` (${esc(srcNote('clarity'))})` : ', no day kept yet'}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Page</th><th>Page views</th><th>Clarity sessions</th><th>Engaged time</th><th>Scroll depth</th><th class="l">Next step</th></tr></thead><tbody>${prow}</tbody></table></div>
       <p class="note" style="margin-top:10px">Engaged time is Clarity’s active time per session (the tab in front, someone moving, scrolling or typing); scroll depth is how far down a session got, on average. Clarity keeps no history for export, so a day appears the morning after it ends, and time and scroll show for all channels only.</p>`)}
+    ${bfabCardHTML(c)}
     ${ebfCardHTML(c)}
     <p class="note"><b>Why two arrival rates.</b> Meta counts a landing page view only when its pixel may fire, and in Europe it waits for a cookie answer; our own count is cookieless and holds. When ours stays high while Meta’s drops, the banner moved, not the traffic. Ours counts the arrivals that carried an ad id${TAGS_READ ? ' and compares them with the clicks of the ads whose link names the ad, so a click it could never see does not read as lost. It can pass 100%: a link opened twice (Instagram’s browser, then Safari or Chrome) arrives twice' : ''}.</p>`;
   if (paid) {
