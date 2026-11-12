@@ -7100,6 +7100,30 @@ function openBuy() { toggleBuyModal(); }
         if (typeof strideStickySync === 'function') strideStickySync();
     }
 
+    // THE ORDER'S OWN VISIT (2026-11-12, Purchase match quality; Yossi: "Yes, build it"). Meta matches a
+    // purchase above all by the buyer's address, and the server sees it only in a request the buyer's own
+    // browser makes to it: the buy form, a popup code, a demo sign-up. Apple Pay, Google Pay and PayPal
+    // straight from the hero skip all three, so a first-time buyer's purchase reached Meta with no address
+    // (11-11, a US buyer from an ad). The moment a payment starts in any checkout on this page, and again when
+    // it completes in case that one was lost, the browser names the transaction to the server, which keeps
+    // this request's address and browser for that order's Meta report and nothing else (main.py
+    // _handle_checkout_visit). Only the transaction goes: no email, no cookie. Once per transaction, and never
+    // after a No to ad measurement. sendBeacon (text/plain, no preflight) survives the move to the welcome page.
+    let strideVisitSent = {};
+    function strideCheckoutVisit(ev) {
+        try {
+            if (!ev || (ev.name !== 'checkout.payment.initiated' && ev.name !== 'checkout.completed')) return;
+            var txn = String((ev.data && ev.data.transaction_id) || '');
+            if (!/^txn_[0-9a-z]{26}$/.test(txn) || strideVisitSent[txn]) return;
+            if ((window.strideConsentAds ? window.strideConsentAds() : '') === 'denied') return;
+            strideVisitSent[txn] = 1;
+            var url = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+            var body = JSON.stringify({ action: 'checkout_visit', txn: txn });
+            if (navigator.sendBeacon && navigator.sendBeacon(url, body)) return;
+            fetch(url, { method: 'POST', body: body, keepalive: true, mode: 'no-cors' }).catch(function () {});
+        } catch (e) {}
+    }
+
     // MEASURED against the live page in Chromium and WebKit, not assumed:
     //   checkout.loaded        fires for the inline express mount on desktop, iPhone
     //                          and Pixel, so it is a reliable "it rendered" signal.
@@ -7161,6 +7185,8 @@ function openBuy() { toggleBuyModal(); }
         // demo prompt stays away. Only these two: checkout.loaded and payment.error fire for
         // every visitor the moment the wallet mounts.
         if (ev && (ev.name === 'checkout.payment.initiated' || ev.name === 'checkout.completed')) strideMarkBuyIntent();
+        // This payment's own visit, for its purchase's Meta report: any checkout on the page (strideCheckoutVisit).
+        strideCheckoutVisit(ev);
         if (!strideExpressLive) return;          // the overlay's events are not ours
         var name = ev && ev.name;
         if (name === 'checkout.loaded') { strideExpressReveal(true); return; }
