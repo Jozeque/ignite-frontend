@@ -3523,6 +3523,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          like the quotes below. Each plays muted on a loop while it is mostly on screen and rests
          when it leaves; a press gives one reel its sound from the start, and only one ever has it.
          Nothing loads early: the posters come when the strip is near, a video only once it plays.
+         KUNI's (data-hold) shows his face for 2 seconds first, see the script.
          Names are names (data-no-translate); the roles and the button's words are translated. -->
     <div class="reels" id="reels" tabindex="0" role="region" aria-label="Stride 实际演示">
       <figure class="reel">
@@ -3597,7 +3598,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </figure>
       <figure class="reel">
         <div class="reel-frame">
-          <video src="/media/why/kuni.mp4" data-poster="/media/why/kuni.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n6 reel-r6"></video>
+          <video src="/media/why/kuni.mp4" data-poster="/media/why/kuni-face.jpg" data-hold muted loop playsinline preload="none" aria-labelledby="reel-n6 reel-r6"></video>
           <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n6">
             <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
             <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
@@ -3633,8 +3634,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         loud = -1;
         paint();
       }
+      // KUNI's card (data-hold) keeps his face, the poster, up for HOLD ms once the card is on screen,
+      // then plays like the others (Yossi 2026-11-12: hold the face until someone "taps or scroll to
+      // it"; his reel itself shows only his screen). A press plays it with sound at once. The hold is
+      // over for good once it has played; leaving the screen before that starts it again next time.
+      var HOLD = 2000, held = [], timer = [];
       function sound(i) {
         var v = vids[i];
+        held[i] = true;
+        if (timer[i]) { clearTimeout(timer[i]); timer[i] = 0; }
         if (loud === i && !v.muted) { hush(); return; }
         for (var k = 0; k < vids.length; k++) if (k !== i) vids[k].muted = true;
         v.muted = false;
@@ -3669,11 +3677,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (window.strideAfterLoad) strideAfterLoad(watch); else watch();
       var io = new IntersectionObserver(function (entries) {
         entries.forEach(function (e) {
-          var v = e.target;
+          var v = e.target, i = vids.indexOf(v);
           if (e.isIntersecting && e.intersectionRatio >= 0.6) {
             if (v.preload === 'none') v.preload = 'auto';
+            if (v.hasAttribute('data-hold') && !held[i] && v.muted) {
+              posters();
+              if (!timer[i]) timer[i] = setTimeout(function () {
+                timer[i] = 0;
+                held[i] = true;
+                if (!reduce || !v.muted) play(v);
+              }, HOLD);
+              return;
+            }
             if (!reduce || !v.muted) play(v);
           } else if (!e.isIntersecting || e.intersectionRatio < 0.3) {
+            if (timer[i]) { clearTimeout(timer[i]); timer[i] = 0; }
             v.pause();
           }
         });
