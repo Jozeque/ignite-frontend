@@ -892,6 +892,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mkc-half{margin:0 0 12px;font-size:12.5px;line-height:1.5;color:var(--ink2)}
   .mkc-wl{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
   .mkc-needs{margin:8px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink3)}
+  .mkc-legal{margin:8px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink3)}
+  .mkc-legal a{color:inherit;text-decoration:underline}
   .mkc-buy[disabled]{opacity:.5;cursor:default;transform:none}
   /* ── Tendril, where the session was (Yossi 2026-11-04) ─────────────────────────────
      /tendril/'s hero in the right column: the name the way the plugin writes it, the claim, the
@@ -1002,6 +1004,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .w-xm #chains-rail .mkc-offer > div:not(.mkc-rows){order:2}
   .w-xm #chains-rail .mkc-offer > .mkc-buy{order:3}
   .w-xm #chains-rail .mkc-offer > .mkc-needs{order:4}
+  .w-xm #chains-rail .mkc-offer > .mkc-legal{order:4}
   .w-xm #chains-rail .mkc-offer > .mkc-rows{order:5;margin:16px 0 0}
   /* While an offer is open the rows carry each part's own disc, so the still steps aside and the card ends
      on its link; without an offer (no purchase in this tab, or the offer is over) the still stays. */
@@ -1231,6 +1234,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
             <button type="button" class="mkc-buy btn-copper w-full mt-3 px-4 py-2.5 text-xs uppercase"><span data-w="many">Ajoute-les pour</span><span data-w="one" hidden>Ajoute-le pour</span><span data-w="whole" hidden>Prends tout pour</span><span data-w="none" hidden>Choisis quelque chose</span> <span data-mkc-cta></span></button>
             <p class="mkc-needs" data-mkc-needs hidden>Chaque pack a besoin de son synthé. Synthés non inclus. Les racks ont besoin d'Ableton Live.</p>
+            <!-- The instant-download line (refund policy, 2026-11-09), word for word the one on /samples.html, so its six
+                 translations are the ones already there. The checkout this button opens carries consent_dl, its version. -->
+            <p class="mkc-legal">Téléchargement immédiat. En achetant, tu demandes les fichiers tout de suite et tu acceptes que ton droit de rétractation de 14 jours prenne fin dès le début du téléchargement. <a href="/refund.html">Politique de remboursement</a></p>
             <span hidden data-w="yours">À toi</span><span hidden data-w="soon">Bientôt</span><span hidden data-w="incl">Inclus</span>
           </div>
           <p class="mkc-note text-xs ink3 leading-relaxed mt-3" aria-live="polite" hidden></p>
@@ -1737,9 +1743,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     var packs = mPacksOn().map(function (p) { return p.key; });
     var withColl = mSoundsOn();
     var xid = (typeof _strideXid === 'string' && _strideXid) || '';
+    // consent_dl: the instant-download line under this button, by its version (refund policy, 2026-11-09). The backend
+    // keeps it on the order, as /collection/, /samples.html, /owners/ and /post/ do.
     var body = M
-      ? { action: 'chains_checkout', txn: txn, picks: packs, collection: withColl, external_id: xid }
-      : { action: 'collection_checkout', txn: txn, external_id: xid };
+      ? { action: 'chains_checkout', txn: txn, picks: packs, collection: withColl, external_id: xid, consent_dl: '2026-11-09' }
+      : { action: 'collection_checkout', txn: txn, external_id: xid, consent_dl: '2026-11-09' };
     fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
