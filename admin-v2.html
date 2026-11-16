@@ -1445,6 +1445,11 @@ const BFAB_VIEWS_FROM = '2026-11-13';
 // test's sales, without dividing anything by them (Yossi 2026-11-12, in Hebrew, translated: "why can't I simply see in
 // this table the number of visitors of A vs B? The real one, of that day, up to that moment").
 const BFAB_COUNT_FROM = '2026-11-12';
+// The day the side began following the visitor's country (2026-11-16, in the afternoon in Israel; Yossi, in Hebrew,
+// translated: "let's land all the users of Europe on the popup's landing (B), and all the users from the US, Canada and
+// Australia on 30% for everyone (A)"). From then on A against B compares markets, not offers, so a range that holds
+// that day calls no winner and points at the country table instead.
+const BFAB_GEO_FROM = '2026-11-16';
 function bfabCardHTML(c) {
   const sumOver = (idx, a) => idx.reduce((t, i) => { const x = (BFAB[i] || {})[a] || {}; for (const k of BFAB_KEYS) t[k] += x[k] || 0; return t; },
     Object.fromEntries(BFAB_KEYS.map(k => [k, 0])));
@@ -1455,7 +1460,9 @@ function bfabCardHTML(c) {
   const A = sumOver(c.idx, 'baked'), B = sumOver(c.idx, 'popup');
   const Ar = sumOver(rateIdx, 'baked'), Br = sumOver(rateIdx, 'popup');
   const title = 'The 30% A/B: popup vs 30% for everyone';
-  const sub = 'the homepage since Nov 11, every channel; half the browsers each, kept';
+  const geo = c.idx.some(i => dayOf(i) >= BFAB_GEO_FROM);
+  const sub = geo ? 'the homepage since Nov 11, every channel; from Nov 16 by country: Europe on B, everyone else on A'
+    : 'the homepage since Nov 11, every channel; half the browsers each, kept';
   if (!(A.views + B.views + A.sales + B.sales + B.claims)) {
     return card(title, sub, `<p class="note">Nothing in this range yet. The test runs from ${esc(BFAB_FROM || '2026-11-11')}: pick a range that includes it.</p>`);
   }
@@ -1492,6 +1499,9 @@ function bfabCardHTML(c) {
     const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; };
   const viewsYet = Ar.views > 0 && Br.views > 0;
   const verdict = (() => {
+    if (geo) return `<b>From Nov 16 the side follows the visitor's country, so A against B compares markets, not offers.</b> `
+      + `Europe sees B (the popup), everyone else A (30% for everyone), and a browser already on A stays on A. `
+      + `Read each market in the country table; the random test ran from Nov 11 to Nov 16.`;
     if (!rateIdx.length) return `<b>Per-view rates start on ${esc(shortIso(BFAB_VIEWS_FROM))}.</b> The homepage's views are counted per version from Nov 12 at 09:04 (Israel time), so the first whole day is Nov 13. `
       + (anyCounted ? `Since then: ${fmt.num(A.views)} homepage views on A, ${fmt.num(B.views)} on B. ` : '')
       + `Sales in this range: ${fmt.num(A.sales)} on A, ${fmt.num(B.sales)} on B.`;
@@ -1509,7 +1519,7 @@ function bfabCardHTML(c) {
   const v = (i, n) => dayOf(i) < BFAB_COUNT_FROM ? '—' : fmt.num(n) + (dayOf(i) < BFAB_VIEWS_FROM ? '<small class="subj">since 09:04</small>' : '');
   const dayRows = c.idx.filter(i => BFAB_ARMS.some(a => { const y = (BFAB[i] || {})[a] || {}; return y.views || y.sales || y.claims || y.cta; }))
     .map(i => { const a = BFAB[i].baked, b = BFAB[i].popup;
-      return `<tr><td>${shortDate(dates[i])}</td><td>${fmt.num(a.sales)}</td><td>${fmt.usd0(a.usd)}</td><td>${v(i, a.views)}</td>`
+      return `<tr><td>${shortDate(dates[i])}${dayOf(i) >= BFAB_GEO_FROM ? '<small class="subj">by country</small>' : ''}</td><td>${fmt.num(a.sales)}</td><td>${fmt.usd0(a.usd)}</td><td>${v(i, a.views)}</td>`
         + `<td>${fmt.num(b.claims)}</td><td>${fmt.num(b.sales)}</td><td>${fmt.usd0(b.usd)}</td><td>${v(i, b.views)}</td></tr>`; }).join('');
   return card(title, sub,
     `<p class="note" style="margin:0 0 10px">${verdict}</p>
@@ -1530,7 +1540,7 @@ function bfabCardHTML(c) {
       ${rateRow(Br, B_NAME, true)}
     </tbody></table></div>` : `<p class="note">This range ends before ${esc(shortIso(BFAB_VIEWS_FROM))}, the first whole day the views are counted per version.</p>`}
     ${dayRows ? `<h3 class="svy-h">Day by day</h3><div class="tbl-wrap"><table class="tbl" id="bfab-days"><thead><tr><th>Day</th><th>A sales</th><th>A revenue</th><th>A views</th><th>B codes</th><th>B sales</th><th>B revenue</th><th>B views</th></tr></thead><tbody>${dayRows}</tbody></table></div>` : ''}
-    <p class="note" style="margin-top:10px">Sales are Paddle orders by the side their checkout said, from the test's start (Nov 11, 14:24 UTC), revenue net of tax before refunds; a sale paid with a popup code counts for B whatever device paid. Views and presses are our cookieless counts of the homepage (page loads, so a reload counts again), per side from Nov 12 at 09:04 Israel time; the per-view part starts with Nov 13, the first whole day, and counts that part's sales and codes from the same days. The numbers are at most 10 minutes old; Refresh reads them again now. ${BFAB_EXACT ? '' : '<b>Paddle did not answer this load, so no sales are shown.</b> '}Owners' offers, /tendril/ and the offers after a purchase are not in this test. A code lasts 48 hours, so a B code from late in the range can still sell after it.</p>`);
+    <p class="note" style="margin-top:10px">Sales are Paddle orders by the side their checkout said, from the test's start (Nov 11, 14:24 UTC), revenue net of tax before refunds; a sale paid with a popup code counts for B whatever device paid. Views and presses are our cookieless counts of the homepage (page loads, so a reload counts again), per side from Nov 12 at 09:04 Israel time; the per-view part starts with Nov 13, the first whole day, and counts that part's sales and codes from the same days. The numbers are at most 10 minutes old; Refresh reads them again now. ${BFAB_EXACT ? '' : '<b>Paddle did not answer this load, so no sales are shown.</b> '}Owners' offers, /tendril/ and the offers after a purchase are not in this test. A code lasts 48 hours, so a B code from late in the range can still sell after it.${geo ? ' From Nov 16 (the afternoon, Israel time) the side follows the device\'s time zone: Europe on B, everyone else on A; a browser already on A stays there, one on B outside Europe moves to A. Nov 16 holds both.' : ''}</p>`);
 }
 // "2026-11-13" as "Nov 13".
 function shortIso(iso) { const d = new Date(iso + 'T12:00:00Z'); return isNaN(d) ? iso : shortDate(d); }

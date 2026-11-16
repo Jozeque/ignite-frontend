@@ -50,20 +50,38 @@
     // ordinary price. Every checkout, wallet and lead carries its side (bf_arm) and Clarity tags the visit. AB: 'ab'
     // runs the test; 'baked' or 'popup' puts everyone on that side, which is how it ends. The React pages read AB from
     // its own line below too.
+    //
+    // From 2026-11-16 the side follows the country (Yossi, in Hebrew, translated: "let's land all the users of Europe on
+    // the popup's landing (B), and all the users from the US, Canada and Australia on 30% for everyone (A)"; then:
+    // everyone outside Europe on A, and a returning browser's price never goes up). AB 'geo' reads the device's time
+    // zone before the page draws: a zone of Europe (the EU, the UK, Switzerland, Norway and the rest of the continent;
+    // not Russia, Belarus or Turkey, as the admin card's markets) gets 'popup', any other zone, or none read, 'baked'.
+    // A browser already kept on 'baked' stays there (it was shown $69.30), one kept on 'popup' outside Europe moves to
+    // 'baked' (its price only drops), and the side is kept. On stridehub.io only, as the coin was; ?bfarm= still asks
+    // for a side. The two zone patterns are src/lib/bf-arm.ts's EU_TZ and NOT_EU_TZ, character for character.
     (function () {
       var NAME = 'earlybf30', END = Date.parse('2026-12-01T08:00:00Z');   // midnight after November 30, US Pacific
-      var AB = 'ab';
+      var AB = 'geo';
       try {
         window.STRIDE_BF_END = END;
         if (Date.now() < END && !window.STRIDE_GIFT) {
           window.STRIDE_BF_ON = true;
           var ok = function (v) { return v === 'baked' || v === 'popup'; };
-          var arm = ok(AB) ? AB : '', keep = !arm, q = null;
+          var arm = ok(AB) ? AB : '', keep = !arm, q = null, kept = null;
+          var prod = /(^|\.)stridehub\.io$/i.test(location.hostname);
           try { q = new URLSearchParams(location.search); } catch (e) {}
           if (!arm && q && ok(String(q.get('bfarm') || '').toLowerCase())) arm = String(q.get('bfarm')).toLowerCase();
-          if (!arm) { try { var kept = localStorage.getItem('stride_bf_arm'); if (ok(kept)) arm = kept; } catch (e) {} }
+          if (!arm) { try { kept = localStorage.getItem('stride_bf_arm'); } catch (e) {} }
+          if (!arm && AB === 'geo' && prod) {
+            var tz = '';
+            try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+            var eu = /^(Europe\/|Atlantic\/(Canary|Madeira|Azores|Faroe|Faeroe|Reykjavik)$|Arctic\/Longyearbyen$|Asia\/(Nicosia|Famagusta)$)/.test(tz)
+              && !/^Europe\/(Moscow|Kirov|Volgograd|Astrakhan|Saratov|Ulyanovsk|Samara|Kaliningrad|Minsk|Istanbul)$/.test(tz);
+            arm = eu && kept !== 'baked' ? 'popup' : 'baked';
+          }
+          if (!arm && ok(kept)) arm = kept;
           if (!arm) {
-            if (/(^|\.)stridehub\.io$/i.test(location.hostname)) arm = Math.random() < 0.5 ? 'baked' : 'popup';
+            if (prod) arm = Math.random() < 0.5 ? 'baked' : 'popup';
             else { arm = 'baked'; keep = false; }
           }
           if (keep) { try { localStorage.setItem('stride_bf_arm', arm); } catch (e) {} }
