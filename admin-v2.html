@@ -540,8 +540,11 @@ const EBF_PIN_KEYS = ['folded', 'reopened', 'claims', 'sales', 'usd'], EBF_PIN_A
 // The 30%'s A/B on the homepage (2026-11-11) per day and side, { baked: {views, cta, pay, co, claims, sales, usd, bundle,
 // codes}, popup }: homepage views and buy-path presses from our cookieless counts, the popup's codes, Paddle's orders by
 // the side their checkout said (health.build_bf_ab). BFAB_FROM is the test's first day; BFAB_EXACT, Paddle answered.
+// sales_<m> / usd_<m> (2026-11-16): those sales by the market of the buyer's billing country, us (US + Canada), eu
+// (Europe), row (the rest of the world) (health.bf_ab_region).
 let BFAB = [], BFAB_FROM = null, BFAB_EXACT = false;
-const BFAB_KEYS = ['views', 'cta', 'pay', 'co', 'claims', 'sales', 'usd', 'bundle', 'codes'], BFAB_ARMS = ['baked', 'popup'];
+const BFAB_KEYS = ['views', 'cta', 'pay', 'co', 'claims', 'sales', 'usd', 'bundle', 'codes',
+  'sales_us', 'usd_us', 'sales_eu', 'usd_eu', 'sales_row', 'usd_row'], BFAB_ARMS = ['baked', 'popup'];
 // Whether the backend said how each ad's link names the ad (health.link_tag: 'ad_id', 'meta',
 // 'none'), the day the site began reading ad ids from Meta's own utm_content (the first day of
 // pv_meta_ids, read only from the publish on) and the first whole day after it.
@@ -1477,6 +1480,14 @@ function bfabCardHTML(c) {
     <td><b>${fmt.num(x.sales)}</b></td>
     <td>${x.views ? per1k(x.sales, x.views).toFixed(2) : '—'}</td>
     <td>${x.views ? fmt.usd(per1k(x.usd, x.views)) : '—'}</td></tr>`;
+  // The whole test's sales by the buyer's billing country at Paddle, in the two markets the Meta campaigns run (Yossi
+  // 2026-11-16, in Hebrew, translated: "let's add a split of EU / US here so we know how many bought"). A sale Paddle
+  // gave no country for stays in its side's sales and in no column; the note says how many.
+  const MARKETS = [['us', 'US + Canada'], ['eu', 'Europe'], ['row', 'Rest of the world']];
+  const placed = x => MARKETS.reduce((t, [m]) => t + (x['sales_' + m] || 0), 0);
+  const marketRow = (x, name) => `<tr><td>${name}</td>${MARKETS.map(([m]) => { const n = x['sales_' + m] || 0;
+    return `<td><b>${fmt.num(n)}</b>${n ? `<small class="subj">${fmt.usd0(x['usd_' + m])}</small>` : ''}</td>`; }).join('')}</tr>`;
+  const noCountry = Math.max(0, A.sales - placed(A)) + Math.max(0, B.sales - placed(B));
   const cdf = z => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2);
     const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; };
   const viewsYet = Ar.views > 0 && Br.views > 0;
@@ -1507,6 +1518,12 @@ function bfabCardHTML(c) {
       ${wholeRow(A, A_NAME, A_WHAT, false)}
       ${wholeRow(B, B_NAME, B_WHAT, true)}
     </tbody></table></div>
+    <h3 class="svy-h">Sales by the buyer's country, the whole test in this range</h3>
+    <div class="tbl-wrap"><table class="tbl" id="bfab-markets"><thead><tr><th>Side</th>${MARKETS.map(([, label]) => `<th>${label}</th>`).join('')}</tr></thead><tbody>
+      ${marketRow(A, A_NAME)}
+      ${marketRow(B, B_NAME)}
+    </tbody></table></div>
+    <p class="note" style="margin-top:6px">The buyer's billing country at Paddle, with the revenue under each count. Europe is the EU, the UK, Switzerland, Norway and the rest of the continent, so it holds every country the EU campaign runs in. Homepage views carry no country, so there is no per-view rate by market.${noCountry ? ` <b>${fmt.num(noCountry)} ${noCountry === 1 ? 'sale came' : 'sales came'} without a country</b> and ${noCountry === 1 ? 'is' : 'are'} in no column.` : ''}</p>
     <h3 class="svy-h">Per homepage view, from ${esc(shortIso(BFAB_VIEWS_FROM))}</h3>
     ${rateIdx.length ? `<div class="tbl-wrap"><table class="tbl" id="bfab-rates"><thead><tr><th>Side</th><th>Homepage views</th><th>Buy form opened</th><th>Checkout loaded</th><th>Popup codes</th><th>Sales</th><th>Sales per 1,000 views</th><th>Revenue per 1,000 views</th></tr></thead><tbody>
       ${rateRow(Ar, A_NAME, false)}
