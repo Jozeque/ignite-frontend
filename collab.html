@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+// The Collab Reel mail (stride-flows tools/collab_campaign.py) links here as /collab?t=<token>. The
+// token is the owner's only credential, so it is taken off the address before anything else runs
+// and kept for this tab alone: a phone that reloads the tab after an app switch must not lose the
+// form, and a shared screenshot or copied address must not carry it. It must stay the first script
+// in <head>.
+(function () {
+  var s = { token: '' };
+  var OK = /^[0-9a-f]{32}$/;
+  try {
+    var u = new URL(window.location.href);
+    var t = (u.searchParams.get('t') || '').trim().toLowerCase();
+    if (OK.test(t)) s.token = t;
+    if (u.searchParams.has('t')) {
+      u.searchParams.delete('t');
+      history.replaceState(null, '', u.pathname + u.search + u.hash);
+    }
+  } catch (e) {}
+  try {
+    if (s.token) sessionStorage.setItem('stride_collab_t', s.token);
+    else {
+      var kept = sessionStorage.getItem('stride_collab_t') || '';
+      if (OK.test(kept)) s.token = kept;
+    }
+  } catch (e) {}
+  window.STRIDE_COLLAB = s;
+})();
+</script>
+<title>Make a Stride Reel | Stride</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Film a short Reel in your own session with Stride. We run it as an ad from your handle.">
+<meta name="theme-color" content="#141310">
+<link rel="preload" as="font" type="font/woff2" href="/assets/fonts/outfit-latin.woff2" crossorigin>
+<style>
+  @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  /* The homepage's palette, verbatim (legacy/pages/index.html :root), as review.html. */
+  :root{
+    --bg:#141310; --bg2:#191611; --panel:#1d1b16; --raise:#252119; --line:rgba(216,201,176,.11);
+    --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+    --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e;
+    --violet-lt:#9a8cbb; --rose-lt:#c5807f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--ink2);
+    -webkit-font-smoothing:antialiased;min-height:100vh;padding:40px 16px 56px}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(120% 80% at 50% -10%, rgba(198,113,43,.08), transparent 60%),
+               radial-gradient(100% 60% at 50% 110%, rgba(47,116,142,.05), transparent 60%)}
+  ::selection{background:rgba(198,113,43,.3)}
+  main{position:relative;z-index:1;width:100%}
+  .col{max-width:640px;margin:0 auto}
+  .lockup{display:flex;align-items:center;gap:12px;margin:0 0 22px 4px}
+  .brand{font-size:21px;font-weight:900;letter-spacing:.16em;text-decoration:none;
+    background:linear-gradient(90deg,var(--copper-lt),var(--ember));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+  .lockup .silk{padding-left:12px;border-left:1px solid rgba(216,201,176,.14)}
+  .panel{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(0,0,0,.14)),var(--panel);
+    border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 24px 50px -30px rgba(0,0,0,.9);padding:34px 32px 30px}
+  h1,h2{color:var(--ink);font-weight:900;letter-spacing:-.015em;margin:0}
+  h1{font-size:30px;line-height:1.15;margin-top:12px}
+  h2{font-size:26px;line-height:1.2}
+  h1 .lit{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  p{margin:0;font-size:16px;line-height:1.65}
+  .lead{margin-top:14px}
+
+  /* The title over the reels, centred like the strip under it. */
+  .head{text-align:center;margin-top:6px}
+  .head h1{margin-top:10px}
+  /* The homepage's reels strip (legacy/pages/index.html #reels): the same seven films in the same order, the
+     same sizes and the same playing rules (the first script at the end). From 900px up seven cards of at most
+     172px, centred; below that they share the width (128px at least) and the row bleeds to the screen edges;
+     on a phone each is 35% of the screen, two and part of the third in view. */
+  .reels{display:flex;gap:16px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+    scrollbar-width:none;overscroll-behavior-x:contain;padding:4px 0 12px;margin:26px auto 26px;max-width:1240px}
+  .reels::-webkit-scrollbar{display:none}
+  .reels:focus-visible{outline:2px solid var(--copper-lt);outline-offset:4px;border-radius:18px}
+  .reel{flex:0 1 172px;min-width:128px;margin:0;scroll-snap-align:start}
+  .reel:first-child{margin-left:auto}
+  .reel:last-child{margin-right:auto}
+  .reel-frame{position:relative;aspect-ratio:9/16;border-radius:16px;overflow:hidden;border:1px solid var(--line);
+    background:var(--raise);box-shadow:0 20px 40px -26px rgba(0,0,0,.9)}
+  .reel-frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;cursor:pointer}
+  .reel-sound{position:absolute;left:8px;bottom:8px;display:inline-flex;align-items:center;gap:5px;max-width:calc(100% - 16px);
+    padding:6px 9px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(10,9,7,.62);color:var(--ink);
+    font:inherit;font-size:11px;font-weight:700;line-height:1.15;letter-spacing:.02em;text-align:left;cursor:pointer;
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  .reel-sound svg{width:14px;height:14px;flex:none}
+  .reel-sound[aria-pressed="true"]{border-color:rgba(221,154,82,.6);color:var(--copper-lt)}
+  .reel-sound:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+  .reel-sound .reel-on,.reel-sound .reel-still,.reel-sound .reel-i-on{display:none}
+  .reel-sound[aria-pressed="true"] .reel-off,.reel-sound[aria-pressed="true"] .reel-i-off{display:none}
+  .reel-sound[aria-pressed="true"] .reel-on,.reel-sound[aria-pressed="true"] .reel-i-on{display:inline}
+  @media (prefers-reduced-motion:reduce){
+    .reel-sound[aria-pressed="false"] .reel-off{display:none}
+    .reel-sound[aria-pressed="false"] .reel-still{display:inline}
+  }
+  .reel figcaption{margin-top:10px}
+  .reel-name{margin:0;font-size:14px;font-weight:700;line-height:1.2;color:var(--ink)}
+  .reel-role{margin:4px 0 0;font-size:9.5px;line-height:1.4;letter-spacing:.2em}
+  @media (max-width:899.98px){
+    .reels{gap:10px;margin-left:-16px;margin-right:-16px;padding:4px 16px 10px;scroll-padding-inline:16px}
+    .reel-sound{left:7px;bottom:7px;gap:4px;padding:5px 8px;max-width:calc(100% - 14px)}
+    .reel-sound svg{width:13px;height:13px}
+  }
+  @media (max-width:699.98px){
+    .reel{flex:0 0 max(35vw,130px);min-width:0}
+    .reel-frame{border-radius:14px}
+    .reel-sound{font-size:10.5px}
+    .reel figcaption{margin-top:8px}
+    .reel-name{font-size:13px}
+    .reel-role{font-size:9px;letter-spacing:.16em}
+  }
+  .brief p+p{margin-top:12px}
+  .brief p{font-size:15.5px;line-height:1.6}
+  .gets{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}
+  .gets h2{font-size:19px;letter-spacing:0}
+  .gets p{margin-top:10px;font-size:15.5px;line-height:1.6}
+  .gets b,.brief b{color:var(--ink);font-weight:800}
+
+  form{margin-top:28px;padding-top:24px;border-top:1px solid var(--line)}
+  .field{margin-top:22px}
+  .field:first-child{margin-top:0}
+  label.top,.top{display:block;color:var(--ink);font-size:15px;font-weight:700;margin-bottom:8px}
+  textarea,input[type=text]{display:block;width:100%;font:inherit;font-size:16px;line-height:1.55;color:var(--ink);
+    background:rgba(0,0,0,.28);border:1px solid rgba(216,201,176,.16);border-radius:12px;padding:13px 15px;
+    transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none}
+  textarea{min-height:112px;resize:vertical}
+  textarea::placeholder,input::placeholder{color:#6f675b}
+  textarea:focus,input[type=text]:focus{outline:none;border-color:rgba(221,154,82,.65);box-shadow:0 0 0 3px rgba(198,113,43,.18)}
+  .bad textarea,.bad input[type=text]{border-color:rgba(197,128,127,.75)}
+  .note{margin-top:7px;font-size:13px;line-height:1.5;color:var(--ink3)}
+  .note.warn{color:var(--rose-lt)}
+  .count{display:block;margin-top:6px;color:var(--ink3);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .count:empty{display:none}
+  .count.low{color:var(--copper-lt)}
+
+  .choices{display:flex;flex-wrap:wrap;gap:12px 28px;padding:2px 0}
+  .choice{display:flex;align-items:center;gap:10px;color:var(--ink);font-size:15.5px;font-weight:600;cursor:pointer}
+  .choice input,.consent input{flex:none;width:20px;height:20px;margin:0;accent-color:var(--copper);cursor:pointer}
+  .bad .choice{color:var(--rose-lt)}
+
+  .consent{display:flex;gap:12px;align-items:flex-start;margin-top:26px;cursor:pointer;
+    background:rgba(198,113,43,.06);border:1px solid rgba(198,113,43,.22);border-radius:12px;padding:14px 15px}
+  .consent input{margin-top:2px}
+  .consent span{color:var(--ink);font-size:15px;line-height:1.5;font-weight:600}
+  #f-agree.bad .consent{border-color:rgba(197,128,127,.75)}
+
+  .send{display:flex;width:100%;justify-content:center;align-items:center;gap:.6rem;margin-top:24px;
+    padding:16px 22px;font:inherit;font-size:16px;font-weight:900;letter-spacing:.04em;color:#1c1206;
+    background:linear-gradient(180deg,var(--ember),var(--copper));border:1px solid rgba(255,210,150,.25);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 12px 24px -14px rgba(198,113,43,.8);cursor:pointer;
+    transition:transform .15s,filter .15s,opacity .15s}
+  .send:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .send:focus-visible{outline:2px solid var(--copper-lt);outline-offset:3px}
+  .send[disabled]{opacity:.6;cursor:default;transform:none;filter:none}
+  .status{margin-top:12px;font-size:14px;line-height:1.55;color:var(--rose-lt);min-height:0}
+  .status:empty{display:none}
+  .again{margin-top:16px;font-size:14px;color:var(--ink3)}
+
+  .done p+p{margin-top:12px}
+  .done .small{font-size:14px;color:var(--ink3)}
+  .sign{margin-top:26px;color:var(--ink);font-weight:800;font-size:16px}
+  .sign span{display:block;color:var(--ink3);font-weight:400;font-size:13px;margin-top:2px}
+  .home{display:block;margin-top:18px;text-align:center;font-size:13px}
+  .home a{color:var(--ink3);text-decoration:none;font-weight:600}
+  .home a:hover{color:var(--copper-lt)}
+  [hidden]{display:none!important}
+  main[data-view="loading"] .panel{opacity:.6}
+
+  @media (max-width:560px){
+    body{padding:28px 16px 44px}
+    .panel{padding:26px 20px 24px;border-radius:16px}
+    h1{font-size:25px}
+    h2{font-size:23px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Stride, the sound design engine: every lane of the chain in motion">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script>window.STRIDE_LANGS=["en"]</script>
+<script>(function () {
+  var view = null, pressed = {};
+  // This page view: its page key, channel, ad id and Meta-id flag, read once.
+  function read() {
+    if (view) return view;
+    var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","tendril":"tendril","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+    var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+    var seg = path.split('/');
+    if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+    var first = seg[1] || '';
+    var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+    var q = new URLSearchParams(location.search), rh = '';
+    try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+    var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+    var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '', m = 0;
+    if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+    else {
+      var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+      var fromMeta = /^(fb|ig|msg|an|meta|facebook|instagram)$/.test(s), mid = (q.get('utm_content') || '').trim();
+      if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+      else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+      else if (fromMeta && /^\d{6,24}$/.test(mid)) { c = 'meta'; a = mid; m = 1; }
+      else if (fromMeta && (q.get('utm_campaign') || '').indexOf('|') >= 0) c = 'meta';
+      else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+      else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+      else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+      else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+      else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+      else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+      else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+    }
+    view = { p: p, c: c, a: a, m: m };
+    return view;
+  }
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var v = read(), body = { action: 'pv', p: v.p, c: v.c, a: v.a };
+      if (v.m) body.m = 1;
+      // The 30%'s A/B (2026-11-11): the side this browser is on, set by the script in <head> that picks it.
+      if (window.STRIDE_BF_ARM) body.x = window.STRIDE_BF_ARM;
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
+    } catch (e) {}
+  }
+  // A funnel step by the name the Clarity block gives it, counted when it is a press on the buy path.
+  var STEP = {"buy_form_open":"cta","paypal_button":"pay","wallet_payment_selected":"pay","wallet_payment_started":"pay","checkout_loaded":"co"};
+  window.strideStep = function (name) {
+    try {
+      var s = STEP[name];
+      if (!s || pressed[s] || !navigator.sendBeacon) return;
+      pressed[s] = 1;
+      var fs = { action: 'fs', s: s, c: read().c };
+      if (window.STRIDE_BF_ARM) fs.x = window.STRIDE_BF_ARM;     // the 30%'s A/B side, as on the page view
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(fs));
+    } catch (e) {}
+  };
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();</script>
+</head>
+<body>
+<main id="app" data-view="loading">
+  <div class="col"><div class="lockup"><a class="brand" href="/">STRIDE</a><span class="silk">Sound Design Engine</span></div></div>
+
+  <header class="col head" id="head">
+    <span class="silk">For Stride owners</span>
+    <h1 id="ask">Make a Stride Reel <span class="lit">with us</span></h1>
+  </header>
+
+  <!-- The homepage's reels (legacy/pages/index.html #reels), card for card. Each plays muted on a loop while it is
+       mostly on screen and rests when it leaves; a press gives one reel its sound from the start, and only one ever
+       has it. KUNI's and Brojanowski's (data-hold) show their faces for 2 seconds first. -->
+  <div class="reels" id="reels" tabindex="0" role="region" aria-label="Stride in action">
+    <figure class="reel">
+      <div class="reel-frame">
+        <video src="/media/why/shahaf.mp4" data-poster="/media/why/shahaf.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n1 reel-r1"></video>
+        <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n1">
+          <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+          <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+          <span class="reel-off">Tap for sound</span><span class="reel-still">Play with sound</span><span class="reel-on">Sound on</span>
+        </button>
+      </div>
+      <figcaption>
+        <p class="reel-name" id="reel-n1">Shahaf</p>
+        <p class="silk reel-role" id="reel-r1">Producer</p>
+      </figcaption>
+    </figure>
+    <figure class="reel">
+      <div class="reel-frame">
+        <video src="/media/why/killer-creative.mp4" data-poster="/media/why/killer-creative.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n2 reel-r2"></video>
+        <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n2">
+          <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+          <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+          <span class="reel-off">Tap for sound</span><span class="reel-still">Play with sound</span><span class="reel-on">Sound on</span>
+        </button>
+      </div>
+      <figcaption>
+        <p class="reel-name" id="reel-n2">One click, fresh variation</p>
+        <p class="silk reel-role" id="reel-r2">Joe, Stride</p>
+      </figcaption>
+    </figure>
+    <figure class="reel">
+      <div class="reel-frame">
+        <video src="/media/why/andromeda-colt.mp4" data-poster="/media/why/andromeda-colt.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n3 reel-r3"></video>
+        <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n3">
+          <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+          <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+          <span class="reel-off">Tap for sound</span><span class="reel-still">Play with sound</span><span class="reel-on">Sound on</span>
+        </button>
+      </div>
+      <figcaption>
+        <p class="reel-name" id="reel-n3">Andromeda Colt</p>
+        <p class="silk reel-role" id="reel-r3">Bass Music Producer</p>
+      </figcaption>
+    </figure>
+    <figure class="reel">
+      <div class="reel-frame">
+        <video src="/media/why/brojanowski.mp4" data-poster="/media/why/brojanowski-face.jpg" data-hold muted loop playsinline preload="none" aria-labelledby="reel-n4 reel-r4"></video>
+        <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n4">
+          <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+          <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+          <span class="reel-off">Tap for sound</span><span class="reel-still">Play with sound</span><span class="reel-on">Sound on</span>
+        </button>
+      </div>
+      <figcaption>
+        <p class="reel-name" id="reel-n4">Brojanowski</p>
+        <p class="silk reel-role" id="reel-r4">Dark Prog</p>
+      </figcaption>
+    </figure>
+    <figure class="reel">
+      <div class="reel-frame">
+        <video src="/media/why/evolve-tech-sound.mp4" data-poster="/media/why/evolve-tech-sound.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n5 reel-r5"></video>
+        <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n5">
+          <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+          <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+          <span class="reel-off">Tap for sound</span><span class="reel-still">Play with sound</span><span class="reel-on">Sound on</span>
+        </button>
+      </div>
+      <figcaption>
+        <p class="reel-name" id="reel-n5">Evolve Tech Sound</p>
+        <p class="silk reel-role" id="reel-r5">Sound Designer</p>
+      </figcaption>
+    </figure>
+    <figure class="reel">
+      <div class="reel-frame">
+        <video src="/media/why/liran-paskehat.mp4" data-poster="/media/why/liran-paskehat.jpg" muted loop playsinline preload="none" aria-labelledby="reel-n6 reel-r6"></video>
+        <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n6">
+          <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+          <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+          <span class="reel-off">Tap for sound</span><span class="reel-still">Play with sound</span><span class="reel-on">Sound on</span>
+        </button>
+      </div>
+      <figcaption>
+        <p class="reel-name" id="reel-n6">Liran Paskehat</p>
+        <p class="silk reel-role" id="reel-r6">Producer</p>
+      </figcaption>
+    </figure>
+    <figure class="reel">
+      <div class="reel-frame">
+        <video src="/media/why/kuni.mp4" data-poster="/media/why/kuni-face.jpg" data-hold muted loop playsinline preload="none" aria-labelledby="reel-n7 reel-r7"></video>
+        <button type="button" class="reel-sound" aria-pressed="false" aria-describedby="reel-n7">
+          <svg class="reel-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+          <svg class="reel-i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
+          <span class="reel-off">Tap for sound</span><span class="reel-still">Play with sound</span><span class="reel-on">Sound on</span>
+        </button>
+      </div>
+      <figcaption>
+        <p class="reel-name" id="reel-n7">KUNI</p>
+        <p class="silk reel-role" id="reel-r7">Bush Tech &amp; Downtempo</p>
+      </figcaption>
+    </figure>
+  </div>
+
+  <div class="col">
+  <section class="panel" id="view-form" aria-labelledby="ask">
+    <div class="brief">
+      <p>A Reel up to a minute, shot in your own session, with your face in it.</p>
+      <p>Film it on your phone, or record a split screen like Shahaf's: your face on top, Stride below.</p>
+      <p>Talk while you film: what Stride is, what it can do, what you love doing with it. You don't have to stay quiet and let the sound do all the work.</p>
+      <p>Post it from your Instagram as a Collab with @stride_engine. We run it as an ad from your handle.</p>
+    </div>
+
+    <div class="gets">
+      <h2>What you get</h2>
+      <p><b>Exposure:</b> our ad budget puts your face, your name and your sound in front of thousands of producers every day.</p>
+      <p><b>Your own Stride link</b> that pays you 30% of every sale it brings in, once your Reel is live.</p>
+    </div>
+
+    <p class="again" id="again" hidden></p>
+
+    <form id="collab" novalidate>
+      <div class="field" id="f-name">
+        <label class="top" for="name">Producer name</label>
+        <input type="text" id="name" name="producer_name" maxlength="80" autocomplete="nickname" placeholder="The name you release under" aria-describedby="name-note">
+        <p class="note" id="name-note" hidden></p>
+      </div>
+
+      <div class="field" id="f-genre">
+        <label class="top" for="genre">Genre</label>
+        <input type="text" id="genre" name="genre" maxlength="80" placeholder="Techno, psytrance, bass..." aria-describedby="genre-note">
+        <p class="note" id="genre-note" hidden></p>
+      </div>
+
+      <div class="field" id="f-link">
+        <label class="top" for="link">Instagram / YouTube link</label>
+        <input type="text" id="link" name="link" maxlength="300" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="instagram.com/yourname or @yourname" aria-describedby="link-note">
+        <p class="note" id="link-note">The Reel goes up on Instagram, so Instagram first if you have it.</p>
+      </div>
+
+      <div class="field" id="f-inst">
+        <label class="top" for="inst">Favorite instruments?</label>
+        <input type="text" id="inst" name="instruments" maxlength="300" placeholder="Serum 2, Vital, Operator, your own racks..." aria-describedby="inst-note">
+        <p class="note" id="inst-note" hidden></p>
+      </div>
+
+      <div class="field" id="f-work" role="group" aria-labelledby="work-q">
+        <span class="top" id="work-q">How do you usually work with Stride?</span>
+        <div class="choices">
+          <label class="choice" for="work-racks"><input type="checkbox" id="work-racks" value="racks">Ableton racks</label>
+          <label class="choice" for="work-vsts"><input type="checkbox" id="work-vsts" value="vsts">VSTs inside Stride</label>
+        </div>
+        <p class="note" id="work-note">One or both.</p>
+      </div>
+
+      <div class="field" id="f-idea">
+        <label class="top" for="idea">How would you work with Stride in the video?</label>
+        <textarea id="idea" name="idea" maxlength="1500" rows="4" placeholder="e.g. my Serum bass, Stride writes the curves, the best three go into a drop" aria-describedby="idea-note"></textarea>
+        <span class="count" id="count" aria-live="polite"></span>
+        <p class="note" id="idea-note" hidden></p>
+      </div>
+
+      <div class="field" id="f-when">
+        <label class="top" for="when">When can you shoot the video?</label>
+        <input type="text" id="when" name="shoot_when" maxlength="120" placeholder="e.g. this weekend" aria-describedby="when-note">
+        <p class="note" id="when-note" hidden></p>
+      </div>
+
+      <div class="field" id="f-agree">
+        <label class="consent" for="agree">
+          <input type="checkbox" id="agree" name="agree">
+          <span>I'm in: my face in the video, a Collab with @stride_engine, and Stride can run it as an ad from my handle and show it on stridehub.io.</span>
+        </label>
+        <p class="note" id="agree-note" hidden></p>
+      </div>
+
+      <button class="send" type="submit" id="send">Send</button>
+      <p class="status" id="status" role="alert"></p>
+    </form>
+
+    <p class="sign">Joe<span>Creator of Stride</span></p>
+  </section>
+
+  <section class="panel done" id="view-done" hidden aria-live="polite">
+    <span class="silk">Received</span>
+    <h2 id="done-title" tabindex="-1" style="margin-top:12px;outline:none">Got it, thanks.</h2>
+    <p style="margin-top:14px">I'll write back personally with a short brief and the Instagram setup.</p>
+    <p class="small">Want to change something? Open the link from my email again.</p>
+    <p class="sign">Joe<span>Creator of Stride</span></p>
+  </section>
+
+  <section class="panel" id="view-mail" hidden>
+    <p>This page opens from the link in my email. If you got here another way, reply to that email with your producer name and your Instagram, and I'll take it from there.</p>
+    <p class="sign">Joe<span>Creator of Stride</span></p>
+  </section>
+
+  <p class="home"><a href="/">stridehub.io</a></p>
+  </div>
+</main>
+<script>
+// The reels' playing rules, copied from the homepage's #reels script (legacy/pages/index.html, itself the same
+// as /why-stride's src/components/CreativeRail.tsx): a reel plays muted while at least 60% of it is on screen and
+// rests below 30%; with reduced motion nothing moves until somebody asks for sound. A press on a reel or its
+// button gives that reel its sound from the start and mutes the others; a second press mutes it. A card with
+// data-hold (KUNI's, Brojanowski's) keeps the face, its poster, up for 2 seconds before it plays. The posters
+// come once the strip is near.
+(function () {
+  var strip = document.getElementById('reels');
+  if (!strip) return;
+  var vids = [].slice.call(strip.querySelectorAll('video'));
+  var btns = [].slice.call(strip.querySelectorAll('.reel-sound'));
+  var reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var loud = -1;
+  function play(v) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+  function paint() {
+    for (var k = 0; k < btns.length; k++) btns[k].setAttribute('aria-pressed', k === loud ? 'true' : 'false');
+  }
+  function hush() {
+    if (loud < 0) return;
+    vids[loud].muted = true;
+    loud = -1;
+    paint();
+  }
+  var HOLD = 2000, held = [], timer = [];
+  function sound(i) {
+    var v = vids[i];
+    held[i] = true;
+    if (timer[i]) { clearTimeout(timer[i]); timer[i] = 0; }
+    if (loud === i && !v.muted) { hush(); return; }
+    for (var k = 0; k < vids.length; k++) if (k !== i) vids[k].muted = true;
+    v.muted = false;
+    if (v.preload === 'none') v.preload = 'auto';
+    try { v.currentTime = 0; } catch (e) {}
+    play(v);
+    loud = i;
+    paint();
+  }
+  vids.forEach(function (v, i) {
+    v.addEventListener('click', function () { sound(i); });
+    btns[i].addEventListener('click', function () { sound(i); });
+  });
+  function posters() {
+    vids.forEach(function (v) { var p = v.getAttribute('data-poster'); if (p && !v.getAttribute('poster')) v.setAttribute('poster', p); });
+  }
+  if (!('IntersectionObserver' in window)) { posters(); return; }
+  var near = new IntersectionObserver(function (entries) {
+    for (var k = 0; k < entries.length; k++) {
+      if (entries[k].isIntersecting) { posters(); near.disconnect(); return; }
+    }
+  }, { rootMargin: '800px 0px' });
+  near.observe(strip);
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      var v = e.target, i = vids.indexOf(v);
+      if (e.isIntersecting && e.intersectionRatio >= 0.6) {
+        if (v.preload === 'none') v.preload = 'auto';
+        if (v.hasAttribute('data-hold') && !held[i] && v.muted) {
+          posters();
+          if (!timer[i]) timer[i] = setTimeout(function () {
+            timer[i] = 0;
+            held[i] = true;
+            if (!reduce || !v.muted) play(v);
+          }, HOLD);
+          return;
+        }
+        if (!reduce || !v.muted) play(v);
+      } else if (!e.isIntersecting || e.intersectionRatio < 0.3) {
+        if (timer[i]) { clearTimeout(timer[i]); timer[i] = 0; }
+        v.pause();
+      }
+    });
+  }, { threshold: [0, 0.3, 0.6, 1] });
+  vids.forEach(function (v) { io.observe(v); });
+})();
+</script>
+<script>
+// One owner, one set of answers. collab_open says whether the mailed token is good and hands back
+// what they sent before (so a second visit edits instead of starting over); collab_submit keeps
+// it. Whatever the backend does, the owner is never stuck: every dead end points to replying by
+// mail.
+(function () {
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var IDEA_MAX = 1500;
+  var DRAFT_KEY = 'stride_collab_draft';
+  var token = (window.STRIDE_COLLAB || {}).token || '';
+  var $ = function (id) { return document.getElementById(id); };
+  var app = $('app'), form = $('collab'), send = $('send'), status = $('status');
+  var name = $('name'), genre = $('genre'), link = $('link'), inst = $('inst'), idea = $('idea'), when = $('when'),
+      racks = $('work-racks'), vsts = $('work-vsts'), agree = $('agree');
+  var TEXTS = [name, genre, link, inst, idea, when];
+
+  // What each field says when it is missing or wrong, and which field the backend calls it.
+  var FIELDS = {
+    producer_name: { f: 'f-name', n: 'name-note', el: name, missing: 'Add the name you release under.' },
+    genre: { f: 'f-genre', n: 'genre-note', el: genre, missing: 'Add your genre.' },
+    link: { f: 'f-link', n: 'link-note', el: link, missing: 'Add your Instagram or YouTube.',
+            invalid: "That link doesn't look right. Paste the full address, or type @yourname." },
+    instruments: { f: 'f-inst', n: 'inst-note', el: inst, missing: 'Name a few instruments you love.' },
+    workflow: { f: 'f-work', n: 'work-note', el: racks, missing: 'Pick one or both.' },
+    idea: { f: 'f-idea', n: 'idea-note', el: idea, missing: 'Tell me in a sentence or two.' },
+    shoot_when: { f: 'f-when', n: 'when-note', el: when, missing: 'Roughly when works for you?' },
+    agree: { f: 'f-agree', n: 'agree-note', el: agree, missing: 'Tick this to send your answers.' }
+  };
+  var ORDER = ['producer_name', 'genre', 'link', 'instruments', 'workflow', 'idea', 'shoot_when', 'agree'];
+
+  function view(which) {
+    app.setAttribute('data-view', which);
+    // Once the answers are in, the thanks stands alone: the title and the reels step aside (and stop).
+    $('head').hidden = which === 'done';
+    $('reels').hidden = which === 'done';
+    $('view-form').hidden = which !== 'form' && which !== 'loading';
+    $('view-done').hidden = which !== 'done';
+    $('view-mail').hidden = which !== 'mail';
+  }
+
+  function post(body, ms) {
+    var ctl = window.AbortController ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, ms);
+    return fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function (r) { return r.json(); })
+      .then(function (res) { clearTimeout(timer); return res || {}; },
+            function (err) { clearTimeout(timer); throw err; });
+  }
+
+  // "@name" is an Instagram handle, "instagram.com/name" is how people type a link; the backend
+  // applies the same two rules.
+  function normLink(v) {
+    v = (v || '').trim();
+    if (!v) return '';
+    var m = /^@([A-Za-z0-9._]{1,30})$/.exec(v);
+    if (m) return 'https://www.instagram.com/' + m[1] + '/';
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) v = 'https://' + v.replace(/^\/+/, '');
+    return v;
+  }
+  function linkOk(v) {
+    if (!v || /\s/.test(v)) return false;
+    try {
+      var u = new URL(v);
+      return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname.indexOf('.') > 0
+        && !u.username && !u.password;
+    } catch (e) { return false; }
+  }
+  function workflow() {
+    var w = [];
+    if (racks.checked) w.push('racks');
+    if (vsts.checked) w.push('vsts');
+    return w;
+  }
+
+  function saveDraft() {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        n: name.value, g: genre.value, l: link.value, i: inst.value, d: idea.value, w: when.value, wf: workflow() }));
+    } catch (e) {}
+  }
+  function loadDraft() {
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; }
+  }
+  function dropDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+
+  function mark(key, msg) {
+    var spec = FIELDS[key];
+    var f = $(spec.f), n = $(spec.n);
+    f.classList.toggle('bad', !!msg);
+    if (!n) return;
+    if (msg) {
+      if (!n.hasAttribute('data-default')) n.setAttribute('data-default', n.textContent);
+      n.textContent = msg;
+      n.classList.add('warn');
+      n.hidden = false;
+    } else {
+      n.classList.remove('warn');
+      if (n.hasAttribute('data-default')) n.textContent = n.getAttribute('data-default');
+      if (!n.textContent) n.hidden = true;
+    }
+  }
+
+  function refresh() {
+    var left = IDEA_MAX - idea.value.length;
+    var c = $('count');
+    c.textContent = left <= 200 ? left + ' characters left' : '';
+    c.classList.toggle('low', left <= 60);
+  }
+
+  function fill(r) {
+    name.value = r.producer_name || '';
+    genre.value = r.genre || '';
+    link.value = r.link || '';
+    inst.value = r.instruments || '';
+    idea.value = r.idea || '';
+    when.value = r.shoot_when || '';
+    var wf = r.workflow || r.wf || [];
+    racks.checked = wf.indexOf('racks') >= 0;
+    vsts.checked = wf.indexOf('vsts') >= 0;
+  }
+
+  var KEY_OF = { name: 'producer_name', genre: 'genre', link: 'link', inst: 'instruments', idea: 'idea', when: 'shoot_when' };
+  TEXTS.forEach(function (el) {
+    el.addEventListener('input', function () {
+      refresh();
+      saveDraft();
+      if (el.value.trim()) mark(KEY_OF[el.id], '');
+    });
+  });
+  [racks, vsts].forEach(function (el) {
+    el.addEventListener('change', function () {
+      saveDraft();
+      if (workflow().length) mark('workflow', '');
+    });
+  });
+  agree.addEventListener('change', function () { if (agree.checked) mark('agree', ''); });
+
+  function done() {
+    dropDraft();
+    view('done');
+    try { $('done-title').focus(); } catch (e) {}
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
+  function answers() {
+    return {
+      producer_name: name.value.trim(), genre: genre.value.trim(), link: normLink(link.value),
+      instruments: inst.value.trim(), workflow: workflow(), idea: idea.value.trim(),
+      shoot_when: when.value.trim(), agree: agree.checked
+    };
+  }
+
+  // The page's own check, the same rules the backend applies. Returns the first field that is off.
+  function check(a) {
+    var first = null;
+    function bad(key, msg) { mark(key, msg); if (!first) first = key; }
+    if (!a.producer_name) bad('producer_name', FIELDS.producer_name.missing);
+    if (!a.genre) bad('genre', FIELDS.genre.missing);
+    if (!a.link) bad('link', FIELDS.link.missing);
+    else if (!linkOk(a.link)) bad('link', FIELDS.link.invalid);
+    if (!a.instruments) bad('instruments', FIELDS.instruments.missing);
+    if (!a.workflow.length) bad('workflow', FIELDS.workflow.missing);
+    if (a.idea.length < 3) bad('idea', FIELDS.idea.missing);
+    if (!a.shoot_when) bad('shoot_when', FIELDS.shoot_when.missing);
+    if (!a.agree) bad('agree', FIELDS.agree.missing);
+    return first;
+  }
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    status.textContent = '';
+    var a = answers();
+    var first = check(a);
+    if (first) { FIELDS[first].el.focus(); return; }
+
+    send.disabled = true;
+    send.textContent = 'Sending...';
+    var body = { action: 'collab_submit', token: token };
+    ORDER.forEach(function (k) { body[k] = a[k]; });
+    post(body, 12000)
+      .then(function (res) {
+        if (res.ok && res.status === 'saved') return done();
+        if ((res.status === 'missing' || res.status === 'invalid') && FIELDS[res.field]) {
+          var spec = FIELDS[res.field];
+          mark(res.field, (res.status === 'invalid' && spec.invalid) || spec.missing);
+          spec.el.focus();
+          return;
+        }
+        if (res.status === 'invalid') {
+          status.textContent = "This link isn't working anymore. Reply to my email with your answers and I'll take it from there.";
+          return;
+        }
+        status.textContent = "That didn't go through. Try again in a moment, or reply to my email with your answers.";
+      })
+      .catch(function () {
+        status.textContent = "That didn't go through. Try again in a moment, or reply to my email with your answers.";
+      })
+      .then(function () {
+        send.disabled = false;
+        send.textContent = 'Send';
+      });
+  });
+
+  function startForm(res) {
+    // Anything typed while the page was still asking is kept: it is newer than what is on record.
+    var empty = TEXTS.every(function (el) { return !el.value; }) && !workflow().length;
+    if (res && res.status === 'submitted' && res.collab) {
+      if (empty) {
+        fill(res.collab);
+        agree.checked = !!res.collab.agree;
+      }
+      var at = '';
+      try {
+        if (res.collab.submitted_at_ms) {
+          at = new Date(res.collab.submitted_at_ms).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+        }
+      } catch (e) {}
+      $('again').textContent = 'You sent this' + (at ? ' on ' + at : '') + '. Change anything you like and send it again.';
+      $('again').hidden = false;
+    } else {
+      var d = empty ? loadDraft() : null;
+      if (d) fill({ producer_name: d.n, genre: d.g, link: d.l, instruments: d.i, idea: d.d, shoot_when: d.w, workflow: d.wf });
+    }
+    refresh();
+    view('form');
+  }
+
+  if (!token) { view('mail'); return; }
+  view('loading');
+  post({ action: 'collab_open', token: token }, 8000)
+    .then(function (res) {
+      if (res.ok) return startForm(res);
+      if (res.status === 'invalid') return view('mail');
+      startForm(null);
+    })
+    // The backend being slow or down is no reason to hide the form: the send says so if it fails.
+    .catch(function () { startForm(null); });
+})();
+</script>
+</body>
+</html>
