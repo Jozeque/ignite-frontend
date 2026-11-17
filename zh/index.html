@@ -90,6 +90,34 @@
         }
       } catch (e) {}
     })();
+    // The producers line test (Yossi 2026-11-17, in Hebrew, translated: "let's A/B test it: some get the new one, some
+    // the previous one"). Under "Already in their sessions.", side 'new' gets the line of that day, "500+ producers" big
+    // and in copper (.wild-count), side 'old' the line as it was until then, "Hundreds of producers" (.wild-old). Both
+    // lines are in the page; the side is a class on <html> (count-old) set here, before the page draws, so no line ever
+    // shows and then swaps. One coin per browser, kept (localStorage stride_count_arm), tossed on stridehub.io only:
+    // anywhere else (a local build, the page tests) it is 'new' unless ?count=new|old asks, which is kept too. Every
+    // checkout and wallet carries the side (count_arm) and Clarity tags the visit, so each side's sales count from Paddle
+    // (firebase_cloud/scripts/count_ab_report.py). COUNT_AB 'ab' runs the test; 'new' or 'old' puts everyone on that
+    // side, which is how it ends.
+    (function () {
+      var COUNT_AB = 'ab';
+      try {
+        var ok = function (v) { return v === 'new' || v === 'old'; };
+        var arm = ok(COUNT_AB) ? COUNT_AB : '', keep = !arm, q = '', kept = null;
+        if (!arm) {
+          try { q = String(new URLSearchParams(location.search).get('count') || '').toLowerCase(); } catch (e) {}
+          if (ok(q)) arm = q;
+        }
+        if (!arm) { try { kept = localStorage.getItem('stride_count_arm'); } catch (e) {} if (ok(kept)) arm = kept; }
+        if (!arm) {
+          if (/(^|\.)stridehub\.io$/i.test(location.hostname)) arm = Math.random() < 0.5 ? 'new' : 'old';
+          else { arm = 'new'; keep = false; }
+        }
+        if (keep) { try { localStorage.setItem('stride_count_arm', arm); } catch (e) {} }
+        window.STRIDE_COUNT_ARM = arm;
+        if (arm === 'old') document.documentElement.classList.add('count-old');
+      } catch (e) {}
+    })();
     </script>
     <!-- The price hold (2026-10-22, the script below). Paddle's script, then the price it
          quotes this visitor: both connections are opened here, so that price lands sooner. -->
@@ -1340,6 +1368,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      the section's phone block sets the line to .95rem, so the count is 24px there, under a 30px h2. */
   .wild-count{max-width:52rem;margin:0 auto;font-size:23px;line-height:1.5;font-weight:300;color:var(--ink2)}
   .wild-count b{font-size:1.6em;line-height:1.15;font-weight:800;letter-spacing:-.015em}
+  /* The producers line test (the second <head> script): side 'old' gets the line as it was until 2026-11-17. */
+  .wild-old{display:none}
+  html.count-old .wild-count{display:none}
+  html.count-old .wild-old{display:block}
   /* The testimonials run as ONE row: three cards from 1280px, two below that, one plus a peek
      on a phone (that rule lives in the max-width:899.98px block). Three at 1024px made 307px
      cards that the longest quote stretched to 832px tall, most of it empty. The row's own
@@ -2650,7 +2682,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     section[data-ms="social"] blockquote{font-size:15px;line-height:1.55}
     section[data-ms="social"] > div:first-child{margin-bottom:1.5rem}
     section[data-ms="social"] h2{font-size:1.9rem;margin-bottom:.6rem}
-    section[data-ms="social"] > div:first-child > p:last-child{font-size:.95rem}
+    section[data-ms="social"] > div:first-child > .wild-count,
+    section[data-ms="social"] > div:first-child > .wild-old{font-size:.95rem}
 
     /* Section headings ship text-4xl (36px). One notch down keeps the rhythm
        while returning real estate on every one of the 13 sections. */
@@ -3539,6 +3572,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="silk mb-3" style="color:var(--copper-lt)">真实使用中</p>
       <h2 class="text-4xl md:text-6xl mb-4">已经出现在他们的 <span class="brand">工程里。</span></h2>
       <p class="wild-count"><b class="brand">已经有 500+ 位制作人</b> 在用 Stride 探索。</p>
+      <p class="wild-old text-lg md:text-xl max-w-3xl mx-auto leading-relaxed ink2 font-light"><b class="ink font-semibold">已经有几百位制作人</b> 在用 Stride 探索。</p>
     </div>
 
     <!-- REELS (Yossi 2026-11-11: "put it on the homepage too, small, above the text reviews, as a
@@ -5390,6 +5424,8 @@ document.addEventListener('DOMContentLoaded', function () {
   try { if (window.strideClarity) window.strideClarity('', { bump_arm: strideBumpArm() }); } catch (e) {}
   // The 30%'s A/B (2026-11-11): its side, so recordings and funnels can be cut by it.
   try { if (window.STRIDE_BF_ARM && window.strideClarity) window.strideClarity('', { bf_arm: window.STRIDE_BF_ARM }); } catch (e) {}
+  // The producers line test (2026-11-17): its side, the same way.
+  try { if (window.STRIDE_COUNT_ARM && window.strideClarity) window.strideClarity('', { count_arm: window.STRIDE_COUNT_ARM }); } catch (e) {}
   // The hero quote test: the same tag for its side, and the quote for the phones on 'quote'.
   try {
     var quoteArm = strideQuoteArm();
@@ -5646,6 +5682,7 @@ function openBuy() { toggleBuyModal(); }
         var quoteArm = strideQuoteArm();        // the hero quote test: phones only
         if (quoteArm) out.quote_arm = quoteArm;
         if (window.STRIDE_BF_ARM) out.bf_arm = window.STRIDE_BF_ARM;     // the 30%'s A/B (2026-11-11): baked | popup
+        if (window.STRIDE_COUNT_ARM) out.count_arm = window.STRIDE_COUNT_ARM;   // the producers line test (2026-11-17): new | old
         return out;
     }
 
@@ -7434,6 +7471,7 @@ function openBuy() { toggleBuyModal(); }
                 var _quoteArm = strideQuoteArm();       // the hero quote test: phones only
                 if (_quoteArm) custom.quote_arm = _quoteArm;
                 if (window.STRIDE_BF_ARM) custom.bf_arm = window.STRIDE_BF_ARM;   // the 30%'s A/B (2026-11-11)
+                if (window.STRIDE_COUNT_ARM) custom.count_arm = window.STRIDE_COUNT_ARM;   // the producers line test (2026-11-17)
 
                 // The express button holds an INLINE checkout instance, and Paddle
                 // allows only one at a time. Without this close, every buyer who
