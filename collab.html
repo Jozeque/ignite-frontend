@@ -541,7 +541,10 @@
     producer_name: { f: 'f-name', n: 'name-note', el: name, missing: 'Add the name you release under.' },
     genre: { f: 'f-genre', n: 'genre-note', el: genre, missing: 'Add your genre.' },
     link: { f: 'f-link', n: 'link-note', el: link, missing: 'Add your Instagram or YouTube.',
-            invalid: "That link doesn't look right. Paste the full address, or type @yourname." },
+            invalid: "That link doesn't look right. Paste the full address, or type @yourname.",
+            instagram: "That's not your profile. Paste instagram.com/yourname, or type @yourname.",
+            youtube: "That's not your channel. Paste youtube.com/@yourname.",
+            other: 'Instagram or YouTube only: instagram.com/yourname, @yourname or youtube.com/@yourname.' },
     instruments: { f: 'f-inst', n: 'inst-note', el: inst, missing: 'Name a few instruments you love.' },
     workflow: { f: 'f-work', n: 'work-note', el: racks, missing: 'Pick one or both.' },
     idea: { f: 'f-idea', n: 'idea-note', el: idea, missing: 'Tell me in a sentence or two.' },
@@ -573,23 +576,44 @@
             function (err) { clearTimeout(timer); throw err; });
   }
 
-  // "@name" is an Instagram handle, "instagram.com/name" is how people type a link; the backend
-  // applies the same two rules.
-  function normLink(v) {
-    v = (v || '').trim();
-    if (!v) return '';
-    var m = /^@([A-Za-z0-9._]{1,30})$/.exec(v);
-    if (m) return 'https://www.instagram.com/' + m[1] + '/';
-    if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) v = 'https://' + v.replace(/^\/+/, '');
-    return v;
+  // Their Instagram profile or their YouTube channel, nothing else, so no broken or wrong link reaches me
+  // (2026-11-19). "@name" and instagram.com/name are the Instagram profile (a share link's ?igsh= and a
+  // profile tab are fine), youtube.com/@name, /channel/UC..., /c/ or /user/ the channel; each is sent as one
+  // clean address. A post, a Reel, a video, another site or a typo is refused with what to paste instead.
+  // Returns {url}, or {why}: missing, invalid, instagram, youtube or other (FIELDS.link's notes).
+  var IG_NOT_PROFILE = /^(p|reel|reels|tv|stories|explore|accounts|direct|about|legal|developer)$/i;
+  var IG_TAB = /^(reels|tagged|guides|igtv)$/i;
+  function igProfile(h) {
+    return /^[A-Za-z0-9._]{1,30}$/.test(h) && /[A-Za-z0-9_]/.test(h)
+      ? { url: 'https://www.instagram.com/' + h.toLowerCase() + '/' } : { why: 'instagram' };
   }
-  function linkOk(v) {
-    if (!v || /\s/.test(v)) return false;
-    try {
-      var u = new URL(v);
-      return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname.indexOf('.') > 0
-        && !u.username && !u.password;
-    } catch (e) { return false; }
+  function readLink(v) {
+    v = (v || '').trim();
+    if (!v) return { why: 'missing' };
+    if (/\s/.test(v)) return { why: 'invalid' };
+    if (v.charAt(0) === '@') return igProfile(v.slice(1));
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) v = 'https://' + v.replace(/^\/+/, '');
+    var u;
+    try { u = new URL(v); } catch (e) { return { why: 'invalid' }; }
+    if ((u.protocol !== 'https:' && u.protocol !== 'http:') || u.username || u.password) return { why: 'invalid' };
+    var host = u.hostname.toLowerCase().replace(/\.$/, '').replace(/^(www|m)\./, '');
+    var parts = u.pathname.split('/').filter(Boolean);
+    if (host === 'instagram.com') {
+      if (!parts.length || IG_NOT_PROFILE.test(parts[0]) || parts.length > 2 || (parts.length === 2 && !IG_TAB.test(parts[1])))
+        return { why: 'instagram' };
+      return igProfile(parts[0].replace(/^@/, ''));
+    }
+    if (host === 'youtube.com' || host === 'music.youtube.com') {
+      var p = parts[0] || '';
+      if (/^@[^\/]{1,100}$/.test(p) && parts.length <= 2) return { url: 'https://www.youtube.com/' + p };
+      if (p === 'channel' && /^UC[A-Za-z0-9_-]{22}$/.test(parts[1] || '') && parts.length <= 3)
+        return { url: 'https://www.youtube.com/channel/' + parts[1] };
+      if ((p === 'c' || p === 'user') && parts[1] && parts.length <= 3)
+        return { url: 'https://www.youtube.com/' + p + '/' + parts[1] };
+      return { why: 'youtube' };
+    }
+    if (host === 'youtu.be') return { why: 'youtube' };
+    return { why: 'other' };
   }
   function workflow() {
     var w = [];
@@ -660,6 +684,11 @@
     });
   });
   agree.addEventListener('change', function () { if (agree.checked) mark('agree', ''); });
+  // A link that is off says so as soon as they leave the field, not only at Send.
+  link.addEventListener('blur', function () {
+    var l = readLink(link.value);
+    if (link.value.trim() && !l.url) mark('link', FIELDS.link[l.why] || FIELDS.link.invalid);
+  });
 
   function done() {
     dropDraft();
@@ -670,20 +699,21 @@
 
   function answers() {
     return {
-      producer_name: name.value.trim(), genre: genre.value.trim(), link: normLink(link.value),
+      producer_name: name.value.trim(), genre: genre.value.trim(), link: readLink(link.value).url || '',
       instruments: inst.value.trim(), workflow: workflow(), idea: idea.value.trim(),
       shoot_when: when.value.trim(), agree: agree.checked
     };
   }
 
-  // The page's own check, the same rules the backend applies. Returns the first field that is off.
+  // The page's own check: the backend's rules, and for the link a stricter one (an Instagram profile or a
+  // YouTube channel only). Returns the first field that is off.
   function check(a) {
     var first = null;
     function bad(key, msg) { mark(key, msg); if (!first) first = key; }
     if (!a.producer_name) bad('producer_name', FIELDS.producer_name.missing);
     if (!a.genre) bad('genre', FIELDS.genre.missing);
-    if (!a.link) bad('link', FIELDS.link.missing);
-    else if (!linkOk(a.link)) bad('link', FIELDS.link.invalid);
+    var l = readLink(link.value);
+    if (!l.url) bad('link', FIELDS.link[l.why] || FIELDS.link.invalid);
     if (!a.instruments) bad('instruments', FIELDS.instruments.missing);
     if (!a.workflow.length) bad('workflow', FIELDS.workflow.missing);
     if (a.idea.length < 3) bad('idea', FIELDS.idea.missing);
