@@ -776,7 +776,7 @@ fbq('track', 'PageView');
   .pm.on > a,.pm.on > .pm-btn{color:var(--hdr-copper-lt)}
   .pm.on .pm-btn svg{transform:rotate(180deg)}
   .pm-menu{position:absolute;top:calc(100% + 16px);left:-18px;z-index:60;display:none;
-    width:480px;padding:10px;background:var(--hdr-panel);border:1px solid var(--hdr-line);border-radius:14px;
+    width:500px;padding:10px;background:var(--hdr-panel);border:1px solid var(--hdr-line);border-radius:14px;
     box-shadow:0 24px 50px -24px rgba(0,0,0,.9);grid-template-columns:1.12fr 1fr}
   .pm-menu::before{content:"";position:absolute;left:0;right:0;top:-18px;height:18px}
   .pm.on .pm-menu{display:grid}
@@ -791,6 +791,12 @@ fbq('track', 'PageView');
   .pm-line{margin:11px 0 0;font-size:13px;line-height:1.45;font-weight:600;color:var(--hdr-ink2);white-space:normal}
   .pm-sub{margin:4px 0 0;font-size:12px;line-height:1.45;color:var(--hdr-ink3)}
   .pm-tag{margin:9px 0 0;font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--hdr-copper-lt)}
+  /* The products' own faces beside their names (2026-11-19, Yossi marked the two spots on the open panel: "where
+     else I'd like to see the UI"): Stride's whole window and Tendril's face, small, each name centred against its
+     picture. No alt text: the name beside it says what it is, and the language pages gain no new string.
+     The panel grew from 480px to 500px so TENDRIL and its picture sit side by side with room to spare. */
+  .pm-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .pm-ui{display:block;flex:none;height:52px;width:auto;border-radius:5px;box-shadow:0 10px 20px -10px rgba(0,0,0,.95)}
   /* COLLECTION (2026-11-05): one row across the panel under STRIDE and TENDRIL, a hairline above
      it instead of the divider beside it, so the panel keeps its width and nothing in the bar moves. */
   .pm-mkt{grid-column:1 / -1;margin-top:4px}
@@ -869,8 +875,8 @@ fbq('track', 'PageView');
         <a class="silk hover:text-[var(--hdr-copper-lt)] transition-colors" href="/products">Produkte</a>
         <button type="button" class="silk pm-btn hover:text-[var(--hdr-copper-lt)] transition-colors" aria-label="Produkte" aria-expanded="false" aria-controls="pm-menu" onclick="strideProducts(this)"><svg viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></button>
         <div class="pm-menu" id="pm-menu">
-          <a class="pm-item pm-main" href="/"><span class="pm-name brand">STRIDE</span><p class="pm-line">Sound Design Engine</p><p class="pm-sub">In jeder DAW</p></a>
-          <a class="pm-item" href="/tendril/"><span class="pm-name pm-tdr">TENDRIL</span><p class="pm-line">Drei Engines. Ein lebendiger Sound-Design-Spielplatz.</p><p class="pm-tag">Nur für Stride Besitzer</p></a>
+          <a class="pm-item pm-main" href="/"><span class="pm-top"><span class="pm-name brand">STRIDE</span><img class="pm-ui" src="/media/stride/menu/stride-ui.webp" alt="" width="95" height="52" decoding="async" fetchpriority="low"></span><p class="pm-line">Sound Design Engine</p><p class="pm-sub">In jeder DAW</p></a>
+          <a class="pm-item" href="/tendril/"><span class="pm-top"><span class="pm-name pm-tdr">TENDRIL</span><img class="pm-ui" src="/media/tendril/menu/tendril-face.webp" alt="" width="72" height="52" decoding="async" fetchpriority="low"></span><p class="pm-line">Drei Engines. Ein lebendiger Sound-Design-Spielplatz.</p><p class="pm-tag">Nur für Stride Besitzer</p></a>
           <a class="pm-item pm-mkt" href="/collection/"><span class="pm-name">COLLECTION</span><p class="pm-line">StrideChains, Sounds und Racks. Nimm alles oder nur deine Synths.</p><span class="pm-syn" data-no-translate><img class="s2" src="/media/synths/menu/serum-2.webp" alt="Serum 2" width="92" height="14"><span class="pm-vt"><img src="/media/synths/menu/vital.webp" alt="" width="17" height="18">VITAL</span><img class="dv" src="/media/synths/menu/diva.webp" alt="Diva" width="62" height="21"><span class="pm-tl">TENDRIL</span></span></a>
         </div>
       </div>
