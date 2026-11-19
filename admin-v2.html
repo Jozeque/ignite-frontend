@@ -1193,6 +1193,7 @@ function renderOverview(c) {
   const profit = (x, idx) => x.revenue - x.spend - (all ? x.fees + toolsFor(idx) : 0);
   const dayProfit = c.idx.map(d => profit(agg([d]), [d]));
   const money = srcOk('paddle') ? 'Paddle' : 'stored order totals';
+  const collO = x => x.oColl + x.oBump + x.oPost2;
   const tiles = [
     tileHTML({ label: 'Net revenue', value: fmt.usd0(A.revenue), d: delta(A.revenue, P.revenue, 'high'), sp: spark(dayRev), src: all ? `${money}, net of tax and refunds` : `${money}, credited ${modelLabel()}` }),
     tileHTML({ label: 'Ad spend', value: fmt.usd0(A.spend), d: delta(A.spend, P.spend, 'none'), sp: spark(daySpend),
@@ -1205,6 +1206,12 @@ function renderOverview(c) {
     // Tendril (2026-10-23): its own product, sold to Stride owners, so never in Purchases.
     tileHTML({ label: 'Tendril sales', value: fmt.num(A.oTdr + A.oTdrB), d: delta(A.oTdr + A.oTdrB, P.oTdr + P.oTdrB, 'high'), sp: spark(perDay(c.idx, a => a.oTdr + a.oTdrB)),
       src: `${fmt.usd0(A.nTdr + A.nTdrB)} net, its own product` + (A.oTdrB ? `; ${fmt.num(A.oTdrB)} in the Stride checkout` : '') }),
+    // The Collection (2026-11-19, Yossi: the Overview showed only Stride and Tendril): every order that carries the
+    // whole Collection or any part of it (a StrideChains pack, all four, Sounds & Racks), on its own, in the Stride
+    // checkout (the bump, the Bundle, the cart) or within 24 hours after a Stride order. The three Collection rows of
+    // Revenue by product, added up. Never in Purchases.
+    tileHTML({ label: 'Collection sales', value: fmt.num(collO(A)), d: delta(collO(A), collO(P), 'high'), sp: spark(perDay(c.idx, collO)),
+      src: `${fmt.usd0(A.nColl + A.nBump + A.nPost2)} net, any part` + (A.oBump + A.oPost2 ? `; ${fmt.num(A.oBump + A.oPost2)} with Stride` : '') }),
     tileHTML({ label: 'Visits', value: fmt.num(A.visits), d: delta(A.visits, P.visits, 'high'), sp: spark(c.idx.map(d => days[d].pvAny ? agg([d]).visits : null)), src: pvFrom() == null ? 'counting starts with the site update' : 'arrivals, our cookieless count' }),
     metricTile('pconv', c),
     metricTile('coRate', c),
