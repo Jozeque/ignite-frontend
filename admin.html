@@ -860,15 +860,23 @@
             tbody.querySelectorAll('select[data-field]').forEach(el => {
                 el.addEventListener('change', onSelectChange);
             });
-            tbody.querySelectorAll('textarea[data-field]').forEach(el => {
+            // Notes grow to fit their text. Reading a textarea's scrollHeight makes the browser lay
+            // out the whole table first, and this loop used to read one, resize it, then read the
+            // next, so the table was laid out once per row: on 2026-11-22 the 1,569 rows took 137 s
+            // and the admin froze. An empty note is now drawn 32px tall by its markup (what the
+            // measurement always gave it), and only notes with text are measured, all of them
+            // before any is resized, so one layout serves the whole table.
+            const notes = Array.from(tbody.querySelectorAll('textarea[data-field]'));
+            notes.forEach(el => {
                 el.addEventListener('blur', onCellBlur);
-                // auto-resize
-                el.style.height = Math.max(32, el.scrollHeight) + 'px';
                 el.addEventListener('input', () => {
                     el.style.height = 'auto';
                     el.style.height = Math.max(32, el.scrollHeight) + 'px';
                 });
             });
+            const withText = notes.filter(el => el.value);
+            const heights = withText.map(el => el.scrollHeight);
+            withText.forEach((el, i) => { el.style.height = Math.max(32, heights[i]) + 'px'; });
             tbody.querySelectorAll('button[data-action="mark-contacted"]').forEach(btn => {
                 btn.addEventListener('click', () => markContacted(btn.dataset.id));
             });
@@ -958,7 +966,7 @@
                 <td data-col="notes" class="px-3 py-2">
                     <textarea data-field="notes" data-id="${row.id}" data-original="${escapeHtml(notes)}"
                               class="w-full min-w-[220px] max-w-[260px] bg-black/30 border border-white/5 focus:border-amber-500/50 rounded px-2 py-1 text-[10px] text-zinc-300 placeholder-zinc-700 outline-none resize-none"
-                              rows="1" placeholder="Add a note…">${escapeHtml(notes)}</textarea>
+                              rows="1" style="height:32px" placeholder="Add a note…">${escapeHtml(notes)}</textarea>
                 </td>
                 <td data-col="contacted" class="px-3 py-2 whitespace-nowrap">
                     <div class="flex items-center gap-2">
