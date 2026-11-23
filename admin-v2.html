@@ -520,6 +520,11 @@ let days = [], J = [], REG = [], ADS = [], FLOWS = [], FL = {}, OFFERS = { post2
 // {"cta__meta": n, ...} (health.count_step). OFFER_BUYS: orders from each page after a purchase,
 // per day, or null when Paddle did not answer.
 let BUY = [], STEPS = [], OFFER_BUYS = null;
+// Arrivals by country and channel per day (health.read_pv_countries, 2026-11-23): CC[i] = {"DE__meta": n, ...}, null on a day
+// the count did not run. The site sends the device's time zone from its update of that week on, and pages loaded before
+// it send none, so the first day with counts is a part day: CC_FROM, the first whole day, is the day after it (or the
+// first day held, once the count is older than the data).
+let CC = [], CC_DAY = null, CC_FROM = null;
 // Every machine's first run in the plugin, with its day index (health.build_onboarding), and per
 // person mailed, [[day index, flow index, bought after it]] (health.build_mail). WV: every machine
 // the walkthrough film opened on, with its day index (health.build_walk_video, Stride 2.3.28 on).
@@ -609,6 +614,9 @@ function ingest(p) {
   const ix = list => (list || []).map(d => DI[d]).filter(i => i != null);
   BUY = (p.buyflow || []).map(r => ({ ch: r.ch || 'direct', fm: r.fm || 0, w: r.w || '', e: ix(r.e), f: ix(r.f), i: ix(r.i), b: ix(r.b) }));
   STEPS = p.days.map(d => (p.steps || {})[d] || null);
+  CC = p.days.map(d => (p.pv_cc || {})[d] || null);
+  CC_DAY = CC.findIndex(x => x); if (CC_DAY < 0) CC_DAY = null;
+  CC_FROM = CC_DAY == null ? null : CC_DAY === 0 ? 0 : CC_DAY + 1;
   ONB = (p.onboarding || []).map(r => ({ ...r, i: DI[r.d] })).filter(r => r.i != null);
   WV = (p.walk_video || []).map(r => ({ ...r, i: DI[r.d] })).filter(r => r.i != null);
   MAIL_PEOPLE = (p.mail && p.mail.people) || [];
@@ -1235,8 +1243,8 @@ function renderOverview(c) {
     <div class="cov-row"><span class="k">Page views counted since</span><span class="v">${pf == null ? 'not yet' : shortDate(dates[pf])}</span><span class="d"><span class="src">Our backend</span><span>rates that divide by page views read only the days since then</span></span></div>
     <div class="cov-row"><span class="k">Orders with estimated money</span><span class="v">${fmt.num(A.est)} of ${fmt.num(A.journeys)}</span><span class="d"><span class="src">Paddle / Lemon Squeezy</span><span>from the stored order totals where the platform’s API did not answer; fees at the published rate</span></span></div>
   </div>`;
-  const NAMES = { paddle: 'Paddle API', lemonsqueezy: 'Lemon Squeezy API', meta: 'Meta Marketing API', google: 'Google Ads', events: 'Event log', crm: 'CRM rows', pv: 'Page-view count', fx: 'Exchange rate', resend: 'Resend tracking', clarity: 'Clarity', plugin_success: 'Plugin success event', steps: 'Buy-path presses, our count', buyflow: 'Paddle checkouts, paid and unpaid', early_bf: 'Early Black Friday codes' };
-  const srcs = `<div class="srcs">${Object.entries(PAY.sources).filter(([k]) => k !== 'plugin' + '_success').map(([k, s]) => `<div>${light(s.ok && !s.failed ? 'good' : (k === 'clarity' || k === 'steps' ? 'nodata' : 'warn'), false)}<span>${esc(NAMES[k] || k)}<small>${esc(s.note || '')}</small></span></div>`).join('')}</div>`;
+  const NAMES = { paddle: 'Paddle API', lemonsqueezy: 'Lemon Squeezy API', meta: 'Meta Marketing API', google: 'Google Ads', events: 'Event log', crm: 'CRM rows', pv: 'Page-view count', pv_cc: 'Visits by country, our count', fx: 'Exchange rate', resend: 'Resend tracking', clarity: 'Clarity', plugin_success: 'Plugin success event', steps: 'Buy-path presses, our count', buyflow: 'Paddle checkouts, paid and unpaid', early_bf: 'Early Black Friday codes' };
+  const srcs = `<div class="srcs">${Object.entries(PAY.sources).filter(([k]) => k !== 'plugin' + '_success').map(([k, s]) => `<div>${light(s.ok && !s.failed ? 'good' : (k === 'clarity' || k === 'steps' || k === 'pv_cc' ? 'nodata' : 'warn'), false)}<span>${esc(NAMES[k] || k)}<small>${esc(s.note || '')}</small></span></div>`).join('')}</div>`;
 
   $('p-overview').innerHTML = `
     <div class="hero">${hero}<div class="tiles">${tiles}</div></div>
@@ -1317,6 +1325,68 @@ function buyPathCard(c) {
     + `<div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>After the purchase</th><th>Reached</th><th>Opened its checkout</th><th>Bought</th></tr></thead><tbody>${after}${bumpRow}</tbody></table></div>
     <p class="note" style="margin-top:10px">Page views and presses are counts with nobody in them; from the buy form on, every number is people, each once per step: someone who paid on two days of the range is one payer. A step taken on a day outside the range does not count, so near the range’s edges a later step can be bigger than the one before it. With a channel picked, a page opened from another stridehub.io page, and its presses, count under all channels only. ${F.channel === 'all' ? '' : 'The pages after a purchase and the bump are all channels. '}${OFFER_BUYS ? '' : 'Bought on those pages needs Paddle’s API, which did not answer. '}${PAY.sources.buyflow && !PAY.sources.buyflow.ok ? esc(PAY.sources.buyflow.note) + '.' : ''}</p>`);
 }
+/* ---------- purchase conversion by country (2026-11-23) ---------- */
+// Yossi 2026-11-23, in Hebrew, translated: "let's add to admin v2 a KPI of conversion rate per country". Visits are
+// arrivals by the country of the device's time zone (our cookieless count: health.count_pageview keeps the country,
+// never the zone), purchases are Stride orders by the buyer's billing country at Paddle (j.cc), credited to a channel
+// the way Purchases is. Both read only the days of the range the country count ran in full (from CC_FROM), so no rate
+// divides a whole day's orders by part of its visits; a range without such a day shows the orders by country alone.
+// The markets are the Meta campaigns' countries since 2026-11-16, each country in one campaign only.
+const MARKETS = [
+  ['US + CA + AU', 'the US + CA + AU campaign', ['US', 'CA', 'AU']],
+  ['Europe', 'the EU campaign: GB, DE, FR, CH, AT', ['GB', 'DE', 'FR', 'CH', 'AT']],
+  ['Tier 3', 'JP, IL, IT, NZ, GR, PT, BG, HU, CZ, PL', ['JP', 'IL', 'IT', 'NZ', 'GR', 'PT', 'BG', 'HU', 'CZ', 'PL']],
+];
+const COUNTRY_TOP = 15;
+const REGION_NAMES = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch (e) { return null; } })();
+const countryName = cc => { try { return (REGION_NAMES && REGION_NAMES.of(cc)) || cc; } catch (e) { return cc; } };
+const isCC = cc => /^[A-Z]{2}$/.test(cc || '') && cc !== 'ZZ';
+// {rows: {cc: {visits, orders, net}}, counted: the range's days with visits by country}; 'ZZ' holds no country.
+function byCountry(idx, ch = F.channel, model = F.model) {
+  const w = S.firstW / 100, rows = {};
+  const counted = CC_FROM == null ? [] : idx.filter(i => i >= CC_FROM && CC[i]);
+  const row = cc => rows[cc] || (rows[cc] = { cc, visits: 0, orders: 0, net: 0 });
+  for (const i of counted) for (const [k, n] of Object.entries(CC[i])) {
+    const [cc, c] = k.split('__');
+    if (ch === 'all' || c === ch) row(isCC(cc) ? cc : 'ZZ').visits += +n || 0;
+  }
+  for (const i of (counted.length ? counted : idx)) for (const j of J[i]) {
+    if (j.k !== 'stride') continue;
+    const cr = ch === 'all' ? 1 : credit(j, ch, model, w);
+    if (!(cr > 0)) continue;
+    const r = row(isCC(j.cc) ? j.cc : 'ZZ');
+    r.orders += cr; r.net += cr * (jNet(j) - j.r);
+  }
+  return { rows, counted: counted.length };
+}
+function countryCard(c) {
+  const { rows, counted } = byCountry(c.idx), vis = counted > 0, cols = vis ? 5 : 3;
+  const total = (list, label, sub) => list.reduce((t, r) => { t.visits += r.visits; t.orders += r.orders; t.net += r.net; return t; },
+    { visits: 0, orders: 0, net: 0, label, sub });
+  const known = Object.values(rows).filter(r => r.cc !== 'ZZ'), inMarket = new Set(MARKETS.flatMap(m => m[2]));
+  const markets = MARKETS.map(([label, sub, list]) => total(known.filter(r => list.includes(r.cc)), label, sub))
+    .concat([total(known.filter(r => !inMarket.has(r.cc)), 'Everywhere else', 'every other country')]);
+  const sorted = known.slice().sort((x, y) => (vis ? y.visits - x.visits : 0) || y.orders - x.orders || y.net - x.net || (x.cc < y.cc ? -1 : 1));
+  const shown = sorted.filter((r, k) => k < COUNTRY_TOP || r.orders > 0), rest = sorted.filter(r => !shown.includes(r));
+  const tr = (r, name, sub) => `<tr><td>${esc(name)}${sub ? `<small class="subj" style="margin-left:0">${esc(sub)}</small>` : ''}</td>`
+    + (vis ? `<td>${fmt.num(r.visits)}</td>` : '') + `<td>${fmt.num1(r.orders)}</td>`
+    + (vis ? `<td>${cellLit('pconv', { visits: r.visits, purchPV: r.orders })}</td>` : '') + `<td>${fmt.usd0(r.net)}</td></tr>`;
+  const none = rows.ZZ, all = total(Object.values(rows), 'All countries');
+  const fromDay = CC_DAY == null ? null : CC_FROM <= LAST ? dates[CC_FROM] : new Date(dates[CC_DAY].getTime() + 864e5);
+  const days = vis ? `Every row counts the ${fmt.num(counted)} day${counted === 1 ? '' : 's'} of this range on which visits by country were counted in full`
+      + (counted < c.idx.length ? ` (they are counted from ${shortDate(fromDay)}); the purchases of the range’s other days are left out, so a rate never divides a whole day's purchases by part of its visits.` : '.')
+    : fromDay ? `Visits by country are counted in full from ${shortDate(fromDay)}, and this range has none of those days, so the table shows purchases by country alone.`
+      : 'Visits by country start with the site update that sends the device’s time zone; until then the table shows purchases by country alone, for the whole range.';
+  const body = !Object.keys(rows).length ? `<p class="empty">No ${vis ? 'visits or ' : ''}Stride purchases in this range.</p>`
+    : `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Country</th>${vis ? '<th>Visits</th>' : ''}<th>Purchases</th>${vis ? '<th>Purchase conversion</th>' : ''}<th>Net revenue</th></tr></thead><tbody>
+      <tr class="grp"><td colspan="${cols}">The Meta markets</td></tr>${markets.map(m => tr(m, m.label, m.sub)).join('')}
+      <tr class="grp"><td colspan="${cols}">Countries</td></tr>${shown.map(r => tr(r, countryName(r.cc))).join('')}
+      ${rest.length ? tr(total(rest), `Other countries (${fmt.num(rest.length)})`, rest.length <= 8 ? rest.map(r => countryName(r.cc)).join(', ') : `the ${fmt.num(rest.length)} with the fewest visits, none of them with a purchase`) : ''}
+      ${none && (none.visits || none.orders) ? tr(none, 'No country', 'visits whose time zone names no country; orders with no billing country') : ''}
+    </tbody><tfoot>${tr(all, 'All countries')}</tfoot></table></div>`;
+  return card('Purchase conversion by country', `${esc(chLabel())}; ${vis ? 'visits by the device’s time zone, ' : ''}purchases by the billing country`, body
+    + `<p class="note" style="margin-top:10px">${days} ${vis ? '<b>Visits</b> are arrivals, as above, by the country of the device’s time zone (the count keeps the country, never the zone). ' : ''}<b>Purchases</b> are Stride orders by the buyer’s billing country at Paddle${F.channel === 'all' ? '' : `, credited ${esc(modelLabel())}`}; their net revenue holds the add-ons bought with them, net of tax and refunds. Lemon Squeezy’s orders carry no country.${srcOk('paddle') ? '' : ' <b>Paddle did not answer this load, so no order carries a country.</b>'} The markets are the countries of the three Meta campaigns.${vis ? ` A rate on fewer than ${fmt.num(S.floor)} visits is marked as a small sample.` : ''}</p>`);
+}
 function renderFunnel(c) {
   const A = c.A, paid = F.channel === 'all' || F.channel === 'meta';
   let unseenRow, unseenNote = '';
@@ -1359,7 +1429,7 @@ function renderFunnel(c) {
   }).join('');
   const byCh = card('The same steps, by channel', `purchases and revenue credited ${esc(modelLabel())}`, `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Channel</th><th>Visits</th><th>Purchase conversion</th><th>Checkout rate</th><th>Checkout to purchase</th><th>Purchases</th><th>Net revenue</th><th>Spend</th><th>ROAS</th><th>Cost per customer</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="note" style="margin-top:10px">Visits, checkout rate and checkout to purchase follow the visit’s own channel. Purchase conversion, purchases, revenue, ROAS and cost per customer follow the attribution model. A touch older than the lookback (${S.lookback} days) does not count.</p>`);
-  $('p-funnel').innerHTML = buyPathCard(c) + p1 + `<div class="grid-2">${p2}${p3}</div>` + byCh;
+  $('p-funnel').innerHTML = buyPathCard(c) + p1 + `<div class="grid-2">${p2}${p3}</div>` + byCh + countryCard(c);
 }
 
 /* ---------- Creative ---------- */

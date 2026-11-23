@@ -595,6 +595,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     view = { p: p, c: c, a: a, m: m };
     return view;
   }
+  // The device's time zone as the browser names it (Europe/Berlin), or '' when it will not say.
+  function zone() {
+    try { return String(Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 64); } catch (e) { return ''; }
+  }
   function send() {
     try {
       if (!navigator.sendBeacon) return;
@@ -602,6 +606,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       if (v.m) body.m = 1;
       // The 30%'s A/B (2026-11-11): the side this browser is on, set by the script in <head> that picks it.
       if (window.STRIDE_BF_ARM) body.x = window.STRIDE_BF_ARM;
+      // The device's time zone (2026-11-23): the backend keeps only the country it names.
+      body.z = zone();
       navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
     } catch (e) {}
   }
@@ -1067,7 +1073,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- Content -->
     <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
         <h1 class="text-3xl font-black uppercase tracking-wider mb-2">Privacy Policy</h1>
-        <p class="text-sm text-zinc-500 mb-12">Last updated: November 7, 2026 &nbsp;|&nbsp; Effective: November 7, 2026 &nbsp;|&nbsp; Version 1.13</p>
+        <p class="text-sm text-zinc-500 mb-12">Last updated: November 23, 2026 &nbsp;|&nbsp; Effective: November 23, 2026 &nbsp;|&nbsp; Version 1.14</p>
 
         <div class="space-y-10 text-sm leading-relaxed text-zinc-400">
 
@@ -1128,7 +1134,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <li><strong class="text-zinc-300">How our emails do:</strong> our emails carry a small image and tracked links, so we learn whether each one was delivered, opened and clicked, and stop sending the ones that don't help</li>
                     <li><strong class="text-zinc-300">To improve Stride:</strong> the Discovery Pass moments in Section 2 show us where new users get stuck</li>
                     <li><strong class="text-zinc-300">To measure and improve our ads:</strong> we tell Meta and Google Ads about page views, checkout starts, Discovery Pass sign-ups, downloads and activations, and purchases. Some of this goes from our server, identified by a hashed email address. We also give Meta hashed email addresses of customers, pass users and people who started a checkout, so Meta can leave customers out of our ads and show our ads again to people who showed interest</li>
-                    <li><strong class="text-zinc-300">To understand the website:</strong> which pages work, through Google Analytics and Microsoft Clarity (heatmaps and session recordings). Clarity masks the text you type into forms before it leaves your browser. We also count page views and presses of the buy buttons ourselves, whatever you answer in the cookie banner: each view adds one to a daily count for that page and the kind of link it came from (such as an ad, an email or Instagram), and each press of a buy button adds one to a daily count for that step. Nothing is stored on your device and nothing in the count identifies you</li>
+                    <li><strong class="text-zinc-300">To understand the website:</strong> which pages work, through Google Analytics and Microsoft Clarity (heatmaps and session recordings). Clarity masks the text you type into forms before it leaves your browser. We also count page views and presses of the buy buttons ourselves, whatever you answer in the cookie banner: each view adds one to a daily count for that page and the kind of link it came from (such as an ad, an email or Instagram), and a visit from outside the site also adds one to a daily count for your country, which we read from your device's time zone (we keep the country, never the time zone). Each press of a buy button adds one to a daily count for that step. Nothing is stored on your device and nothing in the count identifies you</li>
                     <li><strong class="text-zinc-300">Referral links:</strong> when you buy Stride we give you a link of your own to send friends, and pay you 15% of each sale it brings in. Our partners have links too. When you arrive through someone's link, we record that visit so the sale that follows is credited to them. Affonso runs this for us (Section 6)</li>
                     <li><strong class="text-zinc-300">To keep our team informed:</strong> when someone registers, buys, activates a pass, books a walkthrough or writes to us, a notice with those details goes to our private team chat</li>
                     <li><strong class="text-zinc-300">To prevent fraud and abuse:</strong> limits on activations per license and one pass per machine. To link a pass to the email it was registered with, we may match it to a recent sign-up from the same network</li>

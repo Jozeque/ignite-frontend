@@ -1045,6 +1045,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     view = { p: p, c: c, a: a, m: m };
     return view;
   }
+  // The device's time zone as the browser names it (Europe/Berlin), or '' when it will not say.
+  function zone() {
+    try { return String(Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 64); } catch (e) { return ''; }
+  }
   function send() {
     try {
       if (!navigator.sendBeacon) return;
@@ -1052,6 +1056,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       if (v.m) body.m = 1;
       // The 30%'s A/B (2026-11-11): the side this browser is on, set by the script in <head> that picks it.
       if (window.STRIDE_BF_ARM) body.x = window.STRIDE_BF_ARM;
+      // The device's time zone (2026-11-23): the backend keeps only the country it names.
+      body.z = zone();
       navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
     } catch (e) {}
   }
