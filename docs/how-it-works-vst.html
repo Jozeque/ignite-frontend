@@ -57,6 +57,25 @@
   .head .brand{background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
   .head p{font-size:clamp(16px,2.4vw,22px);color:var(--ink2)}
   .head p b{color:var(--copper-lt);font-weight:800}
+  .head.head-top{margin-bottom:0}
+
+  /* ── the walkthrough film: the hero of How it works (2026-11-23) ───────
+     Yossi: "as the hero video of the HOW IT WORKS screen, in the centre of the screen, big".
+     Wider than the 960 column when the frame has room (the column centres it), poster first,
+     nothing loads until play. The same file the plugin plays (stride-walkthrough.mp4). */
+  .film{width:min(1120px,calc(100vw - 32px));margin:8px 0 clamp(18px,2.6vw,26px);text-align:center}
+  .film-frame{position:relative;width:100%;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:#0e0e10;
+    border:1px solid var(--line);box-shadow:0 40px 80px -24px rgba(0,0,0,.8)}
+  .film-frame video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;background:#0e0e10}
+  .film-play{position:absolute;left:50%;top:50%;width:clamp(64px,10vw,96px);height:clamp(64px,10vw,96px);
+    transform:translate(-50%,-50%);border-radius:50%;border:1px solid rgba(255,210,150,.3);cursor:pointer;padding:0;
+    display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--ember),var(--copper));
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 18px 36px -12px rgba(0,0,0,.85);transition:transform .15s,filter .15s}
+  .film-play:hover{transform:translate(-50%,-50%) scale(1.05);filter:brightness(1.06)}
+  .film-play svg{width:38%;height:38%;margin-left:7%;fill:#1c1206}
+  .film.playing .film-play{display:none}
+  .film-cap{margin-top:14px;font-size:clamp(14px,1.8vw,16px);line-height:1.5;color:var(--ink2)}
+  .film-cap b{color:var(--ink);font-weight:800}
 
   /* ── prerequisite note (below the header) — swappable setup footage ──── */
   .prereq{width:min(95vw,720px);margin:0 auto clamp(30px,5vw,48px);display:flex;gap:18px;align-items:stretch;
@@ -338,8 +357,25 @@
 <div class="wrap">
 
   <!-- ── header ─────────────────────────────────────────────────────── -->
-  <div class="head">
+  <div class="head head-top">
     <h2>How <span class="brand">Stride VST</span> Works</h2>
+  </div>
+
+  <!-- ── the walkthrough film (hero, 2026-11-23) ────────────────────────── -->
+  <div class="film" id="hiw-film">
+    <div class="film-frame">
+      <video id="hiw-film-video" playsinline preload="none" controlslist="nodownload" disablepictureinpicture
+             poster="/media/stride-walkthrough-poster.jpg">
+        <source src="/media/stride-walkthrough.mp4" type="video/mp4">
+      </video>
+      <button class="film-play" type="button" aria-label="Play the full Stride walkthrough">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.8v14.4c0 .8.9 1.3 1.6.9l11.4-7.2c.6-.4.6-1.3 0-1.7L8.6 3.9C7.9 3.5 7 4 7 4.8z"/></svg>
+      </button>
+    </div>
+    <div class="film-cap"><b>The full Stride walkthrough.</b> Every part of Stride in seven minutes, from loading a synth to saving your chain.</div>
+  </div>
+
+  <div class="head">
     <p style="color:var(--ink);font-weight:600;max-width:36em;margin:0 auto 10px">Build your dream chain in one place, modulate everything you map at once, and get endless unique variations in a few clicks.</p>
     <p style="font-size:clamp(14px,2vw,18px)"><b><span class="d-word">Click</span><span class="m-word">Tap</span> anything on the plugin</b> and see exactly what it does. Fully interactive, exactly like the real window.</p>
   </div>
@@ -1267,6 +1303,23 @@ window.addEventListener('DOMContentLoaded',()=>{
   setTimeout(()=>{if(!hintGone){document.querySelectorAll('.hinted').forEach(e=>e.classList.remove('hinted'));}},9000);
   requestAnimationFrame(loop);
 });
+
+// ── the walkthrough film (hero, 2026-11-23): poster until pressed, then the real controls ──
+(function(){
+  const film=document.getElementById('hiw-film');
+  if(!film)return;
+  // /try already plays the same film right above this frame: once is enough there.
+  try{
+    if(window.self!==window.top&&/^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?try(?:\/|$)/i.test(window.parent.location.pathname)){film.remove();return;}
+  }catch(e){}
+  const v=film.querySelector('video'),b=film.querySelector('.film-play');
+  b.addEventListener('click',()=>{
+    film.classList.add('playing');
+    v.setAttribute('controls','');
+    const p=v.play();
+    if(p&&p.catch)p.catch(()=>{film.classList.remove('playing');});
+  });
+})();
 
 // ── embed mode: report content height to the parent (index.html iframe host) ──
 if(window.self!==window.top){
