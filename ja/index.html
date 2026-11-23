@@ -3147,7 +3147,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="addon-body">
                 <div class="addon-t"><span class="bump-off">Stride Bundle にアップグレード </span><span class="bump-on">✓ Stride Bundle </span><span class="addon-p">+$49</span></div>
                 <div class="addon-s">Stride + Tendril + Stride Collection</div>
-                <div class="addon-s addon-bprice"><span>バンドル合計</span> <s data-bundle-was>$217</s> <b data-bundle-now>$118.30</b></div>
+                <div class="addon-s addon-bprice"><span>バンドル合計</span> <s data-bundle-was>$217</s> <b data-bundle-now>$118</b></div>
               </div>
               <button type="button" class="addon-btn" aria-pressed="false" aria-label="Stride Bundle にアップグレード"
                       onclick="strideToggleAddon(event)"><span class="bump-off">アップグレード</span><span class="bump-on">削除</span></button>
@@ -3180,7 +3180,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="bcard-row">
               <button type="button" class="addon-btn bcard-btn" aria-pressed="false" aria-label="Stride Bundle にアップグレード"
                       onclick="strideToggleAddon(event)"><span class="bump-off">アップグレード <span class="addon-p">+$49</span> &rarr;</span><span class="bump-on">削除</span></button>
-              <p class="bcard-total"><span class="bump-off">バンドル合計</span><span class="bump-on">✓ バンドルを追加済み</span> <b data-bundle-now>$118.30</b> <s data-bundle-was>$217</s></p>
+              <p class="bcard-total"><span class="bump-off">バンドル合計</span><span class="bump-on">✓ バンドルを追加済み</span> <b data-bundle-now>$118</b> <s data-bundle-was>$217</s></p>
             </div>
           </div>
           <span class="bcard-ticket" aria-hidden="true"></span>
@@ -4582,7 +4582,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="addon-body">
               <div class="addon-t"><span class="bump-off">Stride Bundle にアップグレード </span><span class="bump-on">✓ Stride Bundle </span><span class="addon-p">+$49</span></div>
               <div class="addon-s">Stride + Tendril + Stride Collection</div>
-              <div class="addon-s addon-bprice"><span>バンドル合計</span> <s data-bundle-was>$217</s> <b data-bundle-now>$118.30</b></div>
+              <div class="addon-s addon-bprice"><span>バンドル合計</span> <s data-bundle-was>$217</s> <b data-bundle-now>$118</b></div>
             </div>
             <button type="button" class="addon-btn" aria-pressed="false" aria-label="Stride Bundle にアップグレード"
                     onclick="strideToggleAddon(event)"><span class="bump-off">アップグレード</span><span class="bump-on">削除</span></button>
@@ -5660,6 +5660,68 @@ function openBuy() { toggleBuyModal(); }
     // Collection next, on the page that used to be the run's first stop.
     const PADDLE_TENDRIL_BUMP_SUCCESS_URL = 'https://stridehub.io/post2/';
 
+    // Whole prices (Yossi 2026-11-23, in Hebrew, translated: "let's round all the prices on the site down, so it is 216
+    // and not 216.30, and the checkout shows it too... in all currencies of course"). Paddle takes a percentage discount
+    // off to the cent (Stride's ₪309 at 30% is ₪216.30) and has no way to round it, so each Black Friday deal has its own
+    // Paddle prices, whole in every country, made from what the deal charged and rounded down: Stride ₪216, $69, €69,
+    // £62, CA$97; the Bundle ₪363, $118 (Stride's price and two lines); the Bundle before the email on the popup's side
+    // ₪454, $148 (Stride's regular price and two lines of its own). Paddle is asked for those prices instead of the
+    // discount. The page itself still thinks in the discount: its codes, its tickets and its struck prices are as they
+    // were; only the cart handed to Paddle (strideWholeOrder) and the price ids Paddle hands back (strideWholeId) change.
+    // A rule applies when the discount is its own and the cart holds every price in `from`: those become `to`, and the
+    // discount goes. Any other discount (a friend's 20%, a partner's, a personal code) goes to Paddle as it is.
+    // The same list is read by the React pages at build (src/lib/whole-prices.ts), so it stays plain JSON.
+    const STRIDE_WHOLE = [
+        { "discount": "dsc_01m5wt7ben1x97t6qv0chz08kf", "from": ["pri_01m2dcx05b0z2dcnscp4qjm28d"],
+          "to": ["pri_01m847fqtf8e7g0njcn1phrr4t"] },
+        { "discount": "dsc_01m72ytkj97qd4vgqhx25e957p",
+          "from": ["pri_01m2dcx05b0z2dcnscp4qjm28d", "pri_01m5hgws7pfwwg4yevje6ajqrp", "pri_01m6nnycexzy151nynszqdn87n"],
+          "to": ["pri_01m847fqtf8e7g0njcn1phrr4t", "pri_01m847fr6p62za04xy8dj448xd", "pri_01m847frz6jj9h174bn6qq4j5t"] },
+        { "discount": "dsc_01m7615n0gdj7q147k97wt8w1r",
+          "from": ["pri_01m2dcx05b0z2dcnscp4qjm28d", "pri_01m5hgws7pfwwg4yevje6ajqrp", "pri_01m6nnycexzy151nynszqdn87n"],
+          "to": ["pri_01m2dcx05b0z2dcnscp4qjm28d", "pri_01m847fscbft2cywjx677gyv9b", "pri_01m847fsrmpdz016b5h1ezrpf4"] }
+    ];
+    // Each whole price -> the price it stands in for, so whatever reads Paddle's answer by price id reads it unchanged.
+    const STRIDE_WHOLE_BACK = {};
+    STRIDE_WHOLE.forEach(function (r) {
+        r.to.forEach(function (p, n) { if (p !== r.from[n]) STRIDE_WHOLE_BACK[p] = r.from[n]; });
+    });
+    function strideWholeId(id) { return STRIDE_WHOLE_BACK[id] || id; }
+    // { items, discountId } as Paddle gets them: the deal's whole prices in place of its discount.
+    // A visitor's own Early Black Friday code (strideBfDid: 30% off Stride, exactly EARLYBF30's deal) goes as the same
+    // whole price. It cannot go as a fixed amount instead: Paddle refuses a fixed amount in any other currency than its
+    // own (tested 2026-11-23), so a code claimed in euros would break a checkout in pounds. The order names the code
+    // instead (custom_data.bf_did, strideWholeCode), so its sale stays that code's in admin v2.
+    function strideWholeOrder(items, discountId) {
+        var out = (items || []).map(function (i) { return Object.assign({}, i); });
+        var hit = false;
+        var deal = (discountId && strideWholeCode() === discountId) ? STRIDE_CODES.earlybf30 : discountId;
+        if (deal) {
+            STRIDE_WHOLE.forEach(function (r) {
+                if (r.discount !== deal) return;
+                var at = r.from.map(function (p) {
+                    for (var k = 0; k < out.length; k++) if (out[k].priceId === p) return k;
+                    return -1;
+                });
+                if (at.indexOf(-1) >= 0) return;
+                at.forEach(function (k, n) { out[k].priceId = r.to[n]; });
+                hit = true;
+            });
+        }
+        return { items: out, discountId: hit ? null : (discountId || null) };
+    }
+    // The visitor's own Early Black Friday code while it is the page's code, else ''.
+    function strideWholeCode() {
+        try { return (strideBfDid && strideCodeId === strideBfDid) ? String(strideBfDid) : ''; } catch (e) { return ''; }
+    }
+    // The same, only while it is what the cart is priced with (Stride without the Bundle, whose own deal stands in for
+    // it): the code an order names in custom_data.bf_did, as its discount used to be the order's. A Bundle bought after
+    // the email stays the Bundle's sale, as before.
+    function strideWholeCodeOnOrder() {
+        var c = strideWholeCode();
+        try { return (c && strideCartDiscount() === c) ? c : ''; } catch (e) { return ''; }
+    }
+
     let stridePaddleInit = false;
 
     // Initialise ALWAYS, even while the provider below is still Lemon Squeezy.
@@ -5723,6 +5785,9 @@ function openBuy() { toggleBuyModal(); }
         if (quoteArm) out.quote_arm = quoteArm;
         if (window.STRIDE_BF_ARM) out.bf_arm = window.STRIDE_BF_ARM;     // the 30%'s A/B (2026-11-11): baked | popup
         if (window.STRIDE_COUNT_ARM) out.count_arm = window.STRIDE_COUNT_ARM;   // the producers line test (2026-11-17): new | old
+        // The visitor's own Early Black Friday code, which the checkout carries as a whole price (strideWholeOrder).
+        var bfDid = strideWholeCodeOnOrder();
+        if (bfDid) out.bf_did = bfDid;
         return out;
     }
 
@@ -6447,7 +6512,8 @@ function openBuy() { toggleBuyModal(); }
         if (strideLocal) return strideLocal.stride;
         var bf = (!!window.STRIDE_BF && strideCodeId === STRIDE_CODES[window.STRIDE_BF])
             || (!!strideBfDid && strideCodeId === strideBfDid);
-        return bf ? Math.round(STRIDE_PRICE * 70) / 100 : STRIDE_PRICE;
+        // Rounded down, as Paddle's whole Black Friday price is ($69, not $69.30; strideWholeOrder).
+        return bf ? Math.floor(STRIDE_PRICE * 70 / 100 + 1e-6) : STRIDE_PRICE;
     }
     function strideOrderTotal() {
         // The Stride Bundle: all three at its discount right now (strideBundleNow), Paddle's figure once it has answered.
@@ -6456,21 +6522,22 @@ function openBuy() { toggleBuyModal(); }
         return stride + (strideAddonActive() ? strideBumpPrice() : 0);
     }
 
-    // The Stride Bundle in dollars, until Paddle has priced it: $99 + $49 + $69 = $217, and each at its discount, to
-    // the cent as Paddle rounds it ($53.97 + $26.71 + $37.62 = $118.30).
+    // The Stride Bundle in dollars, until Paddle has priced it: $99 + $49 + $69 = $217, and the three at its discount,
+    // rounded down as its whole prices are (2026-11-23): $53.97 + $26.71 + $37.62 = $118.30 -> $118 ($69 + $20 + $29).
     // pre: the same at STRIDEBUNDLEFULL, the popup's side before the email ($67.52 + $33.42 + $47.06 = $148).
     function strideBundleDollars() {
         var off = function (v, pct) { return Math.round(v * (100 - pct)) / 100; };
-        var at = function (pct) { return off(STRIDE_PRICE, pct) + off(TENDRIL_ADDON_PRICE, pct) + off(COLLECTION_VALUE, pct); };
+        var at = function (pct) {
+            return Math.floor(off(STRIDE_PRICE, pct) + off(TENDRIL_ADDON_PRICE, pct) + off(COLLECTION_VALUE, pct) + 1e-6);
+        };
         return { list: STRIDE_PRICE + TENDRIL_ADDON_PRICE + COLLECTION_VALUE,
                  charged: at(BUNDLE_PERCENT), pre: at(BUNDLE_FULL_PERCENT) };
     }
-    // The Bundle's ticket: what its discount takes off the three for this visitor (Paddle's own figures once it has
-    // answered), rounded down: 45% for the $49 bump (2026-11-10). It read a fixed 50% while the discount was 50%.
+    // The Bundle's ticket: a fixed 45% for the $49 bump (2026-11-10). It read a fixed 50% while the discount was 50%.
+    // It was worked out from the prices until 2026-11-23 (Yossi, on the whole prices, in Hebrew, translated: "leave the
+    // BLACK FRIDAY round, don't make it responsive"), so rounding the prices down can never move it.
     function strideBundlePct() {
-        var b = strideBundle || strideBundleDollars();
-        var p = b.list > 0 ? Math.floor((b.list - b.charged) / b.list * 100 + 1e-9) : 0;
-        return (p > 0 ? p : Math.floor(BUNDLE_PERCENT)) + '%';
+        return Math.floor(BUNDLE_PERCENT) + '%';
     }
 
     // The same order at the ordinary price, without any code: Paddle's preview without the
@@ -6571,11 +6638,17 @@ function openBuy() { toggleBuyModal(); }
         try {
             // The cart's one discount (the Stride Bundle's own while it is in, else the page's code).
             var disc = strideCartDiscount();
+            var order = strideWholeOrder(strideCheckoutItems(), disc);
             if (disc && Paddle.Checkout.updateCheckout) {
-                Paddle.Checkout.updateCheckout({ items: strideCheckoutItems(),
-                                                 discountId: disc });
+                // A Black Friday deal goes as its whole prices with no discount, and the null takes off any discount
+                // the checkout still holds (a personal code before the Bundle went in). The custom data is restated
+                // with it, so a visitor's own Early Black Friday code reaches the order (bf_did) even when it arrived
+                // after the wallet opened.
+                Paddle.Checkout.updateCheckout({ items: order.items,
+                                                 discountId: order.discountId,
+                                                 customData: strideExpressCustomData() });
             } else {
-                Paddle.Checkout.updateItems(strideCheckoutItems());
+                Paddle.Checkout.updateItems(order.items);
             }
         } catch (e) {}
     }
@@ -6589,9 +6662,10 @@ function openBuy() { toggleBuyModal(); }
         if (!strideExpressLive) return;
         if (typeof Paddle === 'undefined' || !Paddle.Checkout || !Paddle.Checkout.updateCheckout) return;
         try {
-            var o = { items: strideCheckoutItems(), customData: strideExpressCustomData() };
             var disc = strideCartDiscount();
-            if (disc) o.discountId = disc;
+            var order = strideWholeOrder(strideCheckoutItems(), disc);
+            var o = { items: order.items, customData: strideExpressCustomData() };
+            if (disc) o.discountId = order.discountId;   // null where a deal's whole prices stand in for it
             Paddle.Checkout.updateCheckout(o);
         } catch (e) {}
     }
@@ -6825,7 +6899,7 @@ function openBuy() { toggleBuyModal(); }
                 if (room) {
                     const own = big.textContent;
                     big.textContent = strideMoneyExact(bundleIn ? (strideBundle || strideBundleDollars()).charged
-                                                                : Math.round(strideStridePrice() * 70) / 100);
+                                                                : Math.floor(strideStridePrice() * 70 / 100 + 1e-6));
                     const w = big.getBoundingClientRect().width;
                     big.textContent = own;
                     if (w) big.style.minWidth = Math.ceil(w) + 'px';
@@ -6997,7 +7071,8 @@ function openBuy() { toggleBuyModal(); }
         var scale = Math.pow(10, digits);
         var amounts = {};
         lines.forEach(function (li) {
-            var id = ((li.price || {}).id) || '';
+            // A deal's whole price answers for the price it stands in for (strideWholeOrder).
+            var id = strideWholeId(((li.price || {}).id) || '');
             var minor = parseInt((li.totals || {}).total, 10);
             if (id && isFinite(minor)) amounts[id] = minor / scale;
         });
@@ -7010,11 +7085,18 @@ function openBuy() { toggleBuyModal(); }
                  tendril: tendril == null ? null : tendril, value: value == null ? null : value };
     }
 
+    // A preview's body as Paddle gets it: a Black Friday deal asks for its whole prices (strideWholeOrder).
+    function strideWholePreviewBody(items, discountId) {
+        var o = strideWholeOrder(items, discountId);
+        var body = { items: o.items };
+        if (o.discountId) body.discountId = o.discountId;
+        return body;
+    }
+
     function stridePricePreview(discountId) {
-        var body = { items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
-                             { priceId: PADDLE_PRICE_COLLECTION, quantity: 1 },
-                             { priceId: PADDLE_PRICE_COLLECTION_VALUE, quantity: 1 }] };
-        if (discountId) body.discountId = discountId;
+        var body = strideWholePreviewBody([{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
+                                           { priceId: PADDLE_PRICE_COLLECTION, quantity: 1 },
+                                           { priceId: PADDLE_PRICE_COLLECTION_VALUE, quantity: 1 }], discountId);
         return Paddle.PricePreview(body).then(strideReadPreview);
     }
 
@@ -7023,17 +7105,16 @@ function openBuy() { toggleBuyModal(); }
     // can never take the Stride and Collection prices down with it. A code limited to Stride (the
     // Early Black Friday ones) leaves Tendril at its own price, as the checkout will.
     function strideTendrilPreview(discountId) {
-        var body = { items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
-                             { priceId: PADDLE_PRICE_TENDRIL, quantity: 1 }] };
-        if (discountId) body.discountId = discountId;
+        var body = strideWholePreviewBody([{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
+                                           { priceId: PADDLE_PRICE_TENDRIL, quantity: 1 }], discountId);
         return Paddle.PricePreview(body).then(strideReadPreview).catch(function () { return null; });
     }
-    // The Stride Bundle's three items as one cart, without a discount (the struck prices) and with its own 50%.
+    // The Stride Bundle's three items as one cart, without a discount (the struck prices) and at its own deal (its whole
+    // prices since 2026-11-23).
     function strideBundlePreview(discountId) {
-        var body = { items: [{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
-                             { priceId: PADDLE_PRICE_TENDRIL, quantity: 1 },
-                             { priceId: PADDLE_PRICE_COLLECTION_VALUE, quantity: 1 }] };
-        if (discountId) body.discountId = discountId;
+        var body = strideWholePreviewBody([{ priceId: PADDLE_PRICE_STRIDE, quantity: 1 },
+                                           { priceId: PADDLE_PRICE_TENDRIL, quantity: 1 },
+                                           { priceId: PADDLE_PRICE_COLLECTION_VALUE, quantity: 1 }], discountId);
         return Paddle.PricePreview(body).then(strideReadPreview).catch(function () { return null; });
     }
 
@@ -7166,9 +7247,10 @@ function openBuy() { toggleBuyModal(); }
                 + 'overflow:hidden;opacity:0;pointer-events:none;';
             document.body.appendChild(box);
             strideWarmLive = true;
+            var _order = strideWholeOrder(strideCheckoutItems(), strideCartDiscount());
             Paddle.Checkout.open({
-                items: strideCheckoutItems(),
-                discountId: strideCartDiscount() || undefined,
+                items: _order.items,
+                discountId: _order.discountId || undefined,
                 settings: {
                     displayMode: 'inline',
                     frameTarget: 'stride-paddle-warm',
@@ -7270,8 +7352,9 @@ function openBuy() { toggleBuyModal(); }
                 var _it = ev.data.items;
                 // Tendril rides in the Stride Bundle too (2026-11-07): either way it is theirs, so no page after this
                 // one offers it again, even before the webhook has landed.
+                // The Bundle's Tendril line is a whole price of its own (strideWholeId reads it as Tendril's).
                 var _tdrPaid = Array.isArray(_it)
-                    ? _it.some(function (i) { return i && (i.price_id === PADDLE_PRICE_TENDRIL || ((i.price || {}).id === PADDLE_PRICE_TENDRIL)); })
+                    ? _it.some(function (i) { return i && (strideWholeId(i.price_id) === PADDLE_PRICE_TENDRIL || strideWholeId((i.price || {}).id) === PADDLE_PRICE_TENDRIL); })
                     : (strideBumpIn() === 'tendril' || strideBumpIn() === 'bundle');
                 if (_tdrPaid) sessionStorage.setItem('stride_bump_tendril', String(ev.data.transaction_id));
                 else sessionStorage.removeItem('stride_bump_tendril');
@@ -7288,7 +7371,7 @@ function openBuy() { toggleBuyModal(); }
                 var _tot = Math.round(Number((ev.data.totals || {}).total) * 100) / 100;
                 var _val = _ex(ev.data.totals);
                 (Array.isArray(_it) ? _it : []).forEach(function (i) {
-                    if (i && (i.price_id === PADDLE_PRICE_TENDRIL || ((i.price || {}).id === PADDLE_PRICE_TENDRIL))) _val -= _ex(i.totals);
+                    if (i && (strideWholeId(i.price_id) === PADDLE_PRICE_TENDRIL || strideWholeId((i.price || {}).id) === PADDLE_PRICE_TENDRIL)) _val -= _ex(i.totals);
                 });
                 _val = Math.round(_val * 100) / 100;
                 if ((!_st || _st === 'completed' || _st === 'paid') && isFinite(_tot) && _tot > 0 && ev.data.currency_code) {
@@ -7371,13 +7454,15 @@ function openBuy() { toggleBuyModal(); }
         try {
             strideWarmLive = false;      // the wallet takes Paddle's one checkout over and loads the same code
             strideExpressLive = true;
+            var _order = strideWholeOrder(strideCheckoutItems(), strideCartDiscount());
             Paddle.Checkout.open({
-                items: strideCheckoutItems(),
+                items: _order.items,
                 // The ad code rides into the wallet too, so a one-tap Apple Pay buyer pays
                 // the same price the hero quoted them. Paddle marks only the discount UI
                 // settings (showAddDiscounts, allowDiscountRemoval) as ignored in express,
                 // not the discount itself: the buyer cannot change it, which is the point.
-                discountId: strideCartDiscount() || undefined,
+                // A Black Friday deal arrives as its whole prices instead (strideWholeOrder).
+                discountId: _order.discountId || undefined,
                 customData: strideExpressCustomData(),
                 settings: {
                     displayMode: 'inline',
@@ -7503,7 +7588,8 @@ function openBuy() { toggleBuyModal(); }
                     else if (k === 'checkout[email]') email = v;
                 });
 
-                var items = strideCheckoutItems();
+                // The cart as Paddle gets it: a Black Friday deal as its whole prices (strideWholeOrder).
+                var order = strideWholeOrder(strideCheckoutItems(), strideCartDiscount());
                 if (email) custom.email = email;
                 var _ref = window.strideReferral ? window.strideReferral() : '';
                 if (_ref) custom.affonso_referral = _ref;
@@ -7512,6 +7598,9 @@ function openBuy() { toggleBuyModal(); }
                 if (_quoteArm) custom.quote_arm = _quoteArm;
                 if (window.STRIDE_BF_ARM) custom.bf_arm = window.STRIDE_BF_ARM;   // the 30%'s A/B (2026-11-11)
                 if (window.STRIDE_COUNT_ARM) custom.count_arm = window.STRIDE_COUNT_ARM;   // the producers line test (2026-11-17)
+                // The visitor's own Early Black Friday code, which goes as a whole price (strideWholeOrder).
+                var _bfDid = strideWholeCodeOnOrder();
+                if (_bfDid) custom.bf_did = _bfDid;
 
                 // The express button holds an INLINE checkout instance, and Paddle
                 // allows only one at a time. Without this close, every buyer who
@@ -7536,8 +7625,8 @@ function openBuy() { toggleBuyModal(); }
                 };
                 if (opts && opts.methods) settings.allowedPaymentMethods = opts.methods;
                 Paddle.Checkout.open({
-                    items: items,
-                    discountId: strideCartDiscount() || undefined,
+                    items: order.items,
+                    discountId: order.discountId || undefined,
                     customer: email ? { email: email } : undefined,
                     customData: custom,
                     settings: settings
@@ -8240,7 +8329,8 @@ function openBuy() { toggleBuyModal(); }
         try {
             if (claimed() && strideCodeId === st.did && strideLocal && strideLocal.stride) return strideLocal.stride;
         } catch (e) {}
-        return Math.round(full() * (100 - PERCENT)) / 100;
+        // Rounded down to the whole unit, as Paddle's whole Black Friday prices are (2026-11-23).
+        return Math.floor(full() * (100 - PERCENT) / 100 + 1e-6);
     }
 
     // ── the panel and the pin ─────────────────────────────────────────────────

@@ -573,7 +573,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         } catch (e) {}
         var BUY = offer ? OFFER_PRICE : PRICE;
         var ready = false;
-        var collection = { value: offer ? 24.99 : 35, currency: 'USD' };   // replaced by Paddle's price for this visitor
+        var collection = { value: offer ? 24 : 35, currency: 'USD' };   // replaced by Paddle's price for this visitor
         function showPrice(now, was) {
             document.querySelectorAll('[data-collection-price]').forEach(function (el) {
                 if (!was) { el.textContent = now; return; }
@@ -642,7 +642,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             } catch (e) { return true; }
         };
         document.addEventListener('DOMContentLoaded', function () {
-            if (offer) showPrice('$25', '$35');
+            if (offer) showPrice('$24', '$35');   // $24.99 until 2026-11-23, then whole ($24)
             if (!init()) return;
             try {
                 // With the offer, line 0 is what they pay and line 1 the $35 it is struck against.

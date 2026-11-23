@@ -559,7 +559,8 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
   var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
   var PADDLE_TOKEN = 'live_e0101b87a9e6e7024988534cf7b';
   // A Stride owner who has neither: Tendril's one price, and the whole Stride Collection (the cover owners_checkout
-  // charges when nothing of it is owned). Half of what Paddle quotes this visitor, rounded half up (_owners_cut).
+  // charges when nothing of it is owned). Half of what Paddle quotes this visitor, rounded down to the whole unit
+  // (_owners_cut; Yossi 2026-11-23: every price whole, rounded down: $24.50 is $24).
   var PRICE = { tendril: 'pri_01m5hgws7pfwwg4yevje6ajqrp', whole: 'pri_01m6nnycexzy151nynszqdn87n' };
   var USD = { tendril: 4900, whole: 6900 };   // Paddle's base prices, shown only if its preview never answers
   var REELS = { tendril: '/assets/packs/reel-tendril.mp3', coll: '/assets/packs/collection-teaser.mp3',
@@ -596,7 +597,12 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
         minimumFractionDigits: whole ? 0 : digits, maximumFractionDigits: whole ? 0 : digits }).format(major);
     } catch (e) { return currency + ' ' + major.toFixed(digits); }
   }
-  function half(minor) { return Math.floor((Number(minor) * 50 + 50) / 100); }
+  function half(minor, currency) {
+    var digits = 2;
+    try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).resolvedOptions().minimumFractionDigits; } catch (e) {}
+    var unit = Math.pow(10, digits);
+    return Math.floor(Number(minor) / 2 / unit) * unit;
+  }
   function amt(x) { return Number(((x || {}).offer_price || {}).amount) || 0; }
   function lst(x) { return Number(((x || {}).list_price || {}).amount) || 0; }
   function cur(x) { return ((x || {}).offer_price || {}).currency || ''; }
@@ -708,9 +714,9 @@ main.wrap{flex:1;padding-top:24px;padding-bottom:30px}
   }
   // No token yet: the same two at half of what Paddle quotes this visitor.
   function buildOpen(minor, currency) {
-    T.now = half(minor.tendril); T.was = minor.tendril; T.currency = currency;
+    T.now = half(minor.tendril, currency); T.was = minor.tendril; T.currency = currency;
     C.whole = { list_price: { amount: String(minor.whole), currency: currency },
-                offer_price: { amount: String(half(minor.whole)), currency: currency } };
+                offer_price: { amount: String(half(minor.whole, currency)), currency: currency } };
     C.currency = currency;
     priced = true;
   }
