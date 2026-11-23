@@ -521,8 +521,9 @@ let days = [], J = [], REG = [], ADS = [], FLOWS = [], FL = {}, OFFERS = { post2
 // per day, or null when Paddle did not answer.
 let BUY = [], STEPS = [], OFFER_BUYS = null;
 // Every machine's first run in the plugin, with its day index (health.build_onboarding), and per
-// person mailed, [[day index, flow index, bought after it]] (health.build_mail).
-let ONB = [], MAIL_PEOPLE = [];
+// person mailed, [[day index, flow index, bought after it]] (health.build_mail). WV: every machine
+// the walkthrough film opened on, with its day index (health.build_walk_video, Stride 2.3.28 on).
+let ONB = [], WV = [], MAIL_PEOPLE = [];
 let SURVEY = { blocker: [], heard: [], other: [] };
 // One-off mailing campaigns, whole (not per day): { projects: {id: name}, list: {mail: counts} }.
 let CAMPAIGNS = { projects: {}, list: {} };
@@ -609,6 +610,7 @@ function ingest(p) {
   BUY = (p.buyflow || []).map(r => ({ ch: r.ch || 'direct', fm: r.fm || 0, w: r.w || '', e: ix(r.e), f: ix(r.f), i: ix(r.i), b: ix(r.b) }));
   STEPS = p.days.map(d => (p.steps || {})[d] || null);
   ONB = (p.onboarding || []).map(r => ({ ...r, i: DI[r.d] })).filter(r => r.i != null);
+  WV = (p.walk_video || []).map(r => ({ ...r, i: DI[r.d] })).filter(r => r.i != null);
   MAIL_PEOPLE = (p.mail && p.mail.people) || [];
   // The two questions on /welcome, per day: {answer: n} for each, and the written "Other" answers.
   SURVEY = { blocker: Array.from({ length: DAYS }, () => ({})), heard: Array.from({ length: DAYS }, () => ({})), other: [] };
@@ -1752,19 +1754,23 @@ function renderDemo(c) {
     <div class="tiles">${rates}</div>
     ${card('From sign-up to purchase', `${fmt.num(A.reg)} sign-ups in this range; every percentage is of them`, path)}
     ${card('What activated users reached in the plugin', `share of the ${fmt.num(A.act)} activated sign-ups, from the plugin’s own events`, `<div class="hbars">${bars}</div>`)}
-    ${onboardingCards(c)}`;
+    ${onboardingCards(c)}
+    ${walkVideoCards(c)}`;
 }
 
 /* ---------- Demo: the plugin's first run (Yossi 2026-10-27: "more data on every situation in the onboarding") ---------- */
 // The first screen offers a synth chain (Serum 2, Vital) that starts the tour, or the plain
 // walkthrough; machines without either synth never see it. Bits as health.VST_BITS.
 const ONB_BITS = { offered: 1, picked: 2, heard: 4, tour_done: 8, skipped: 128, card_skip: 256, walk_done: 512,
-  end_keep: 1024, end_own: 2048, bridge_offered: 4096, bridge_yes: 8192, bridge_no: 16384 };
-// The walkthrough's cards in the order a run meets them (health.TOUR_STEPS): a chain tour has all
-// ten, the plain walkthrough has no Open or Add.
-const TOUR_CARDS = [['1', '1 · Load a device, or hear the chain'], ['open', 'Open the synth'], ['add', 'Add more to the chain'],
-  ['2', '2 · Map knobs'], ['3', '3 · Give every lane motion'], ['4', '4 · Keep one, change the rest'], ['5', '5 · Set a range'],
-  ['6', '6 · Set a lane’s speed'], ['7', '7 · Focus one lane'], ['end', 'That’s the loop, the last card']];
+  end_keep: 1024, end_own: 2048, bridge_offered: 4096, bridge_yes: 8192, bridge_no: 16384, show_demo: 32768, zoom: 65536 };
+// Every card a run has met, in the order of health.TOUR_STEPS (each record's cm: bit j = TOUR_CARDS[j]).
+// From 2.3.12 (the 2026-11-02 tour) a chain tour goes 1, 3, 4, The other lane icons, Open add map, end and
+// the plain walkthrough 1, 2, 3, 4, The other lane icons, end; Open, Add, 5, 6 and 7 are the builds before it.
+const TOUR_OLD = ' (before 2.3.12)';
+const TOUR_CARDS = [['1', '1 · Load a device, or hear the chain'], ['open', 'Open the synth' + TOUR_OLD], ['add', 'Add more to the chain' + TOUR_OLD],
+  ['2', '2 · Map knobs'], ['3', '3 · Give every lane motion'], ['4', '4 · Keep one, change the rest'], ['icons', 'The other lane icons'],
+  ['5', '5 · Set a range' + TOUR_OLD], ['6', '6 · Set a lane’s speed' + TOUR_OLD], ['7', '7 · Focus one lane' + TOUR_OLD],
+  ['own', 'Open, add, map'], ['end', 'That’s the loop, the last card']];
 // Which way an activated sign-up went through the first screen.
 function onbPath(r) {
   if (!(r.ms & ONB_BITS.offered)) return 'never';
@@ -1795,7 +1801,7 @@ function onboardingCards(c) {
     <p class="note" style="margin-top:10px">A sign-up counts here once their pass started in the plugin with their confirmed email. Until the plugin build after 2.3.8 reaches people, Skip and closing the first screen look the same (both send nothing), so “picked nothing” holds both. “Still inside their 30 days” have not bought yet but still can.</p>`);
   // 2. Every machine that reported its first run in the range, demo and paid installs apart.
   const M = [0, 1].map(() => ({ n: 0 }));
-  const KEYS = ['offered', 'skipped', 'picked', 'walk', 'heard', 'tour_done', 'walk_done', 'end_keep', 'end_own', 'card_skip', 'bridge_offered', 'bridge_yes', 'bridge_no'];
+  const KEYS = ['offered', 'skipped', 'picked', 'walk', 'heard', 'tour_done', 'walk_done', 'end_keep', 'end_own', 'card_skip', 'bridge_offered', 'bridge_yes', 'bridge_no', 'show_demo', 'zoom'];
   for (const r of ONB) {
     if (r.i < lo || r.i > hi) continue;
     const x = M[r.ps ? 0 : 1];
@@ -1808,20 +1814,25 @@ function onboardingCards(c) {
   const NAMES = { offered: 'Shown the first screen', skipped: 'Pressed its Skip', picked: 'Picked a synth chain', walk: 'Picked the plain walkthrough',
     heard: 'Heard the chain', tour_done: 'Finished the chain tour', walk_done: 'Finished the plain walkthrough', end_keep: 'Last card: kept the chain',
     end_own: 'Last card: start from my own', card_skip: 'Pressed Skip on a card', bridge_offered: 'Asked about Ableton’s own devices',
-    bridge_yes: 'Said yes', bridge_no: 'Said no' };
+    bridge_yes: 'Said yes', bridge_no: 'Said no', show_demo: 'Pressed Show me demo', zoom: 'Pressed the walkthrough button' };
   // Counted from later on: the moments only the next plugin build reports, and the Ableton pair the
   // plugin has always sent but the backend kept only from the update that added them (built 2026-10-27).
+  // The two canvas buttons likewise: sent from 2.3.12, kept from the backend update built 2026-11-23.
   const NEW = new Set(['skipped', 'walk_done', 'end_keep', 'end_own', 'card_skip', 'bridge_no']), KEPT = new Set(['bridge_offered', 'bridge_yes']);
+  const BTN = { show_demo: 'on the canvas while a pass runs, from 2.3.12; counted from the backend update that adds it',
+    zoom: 'beside it: the walkthrough film from 2.3.27, the Meet call before; counted from the backend update that adds it' };
   const cell = (x, k) => x.n ? `${fmt.num(x[k] || 0)} <small>(${fmt.pct((x[k] || 0) / x.n)})</small>` : '—';
-  const mrows = KEYS.map(k => `<tr><td>${esc(NAMES[k])}${NEW.has(k) ? '<small class="subj">from the plugin build after 2.3.8</small>' : KEPT.has(k) ? '<small class="subj">counted from the backend update that adds it</small>' : ''}</td><td>${cell(M[0], k)}</td><td>${cell(M[1], k)}</td></tr>`).join('');
+  const mrows = KEYS.map(k => `<tr><td>${esc(NAMES[k])}${NEW.has(k) ? '<small class="subj">from the plugin build after 2.3.8</small>' : KEPT.has(k) ? '<small class="subj">counted from the backend update that adds it</small>' : BTN[k] ? `<small class="subj">${esc(BTN[k])}</small>` : ''}</td><td>${cell(M[0], k)}</td><td>${cell(M[1], k)}</td></tr>`).join('');
   const machines = card('Every machine’s first run', 'by the day it first reported; demo passes and paid installs apart',
     `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Moment</th><th>On a Discovery Pass</th><th>Paid installs</th></tr></thead><tbody>
       <tr><td><b>Machines</b></td><td><b>${fmt.num(M[0].n)}</b></td><td><b>${fmt.num(M[1].n)}</b></td></tr>${mrows}</tbody></table></div>
-    <p class="note" style="margin-top:10px">Every machine the plugin reported from, whether or not a sign-up can be tied to it: the paid installs are customers, and they never show on the rest of this tab. Each moment counts once per machine. The Ableton question comes after a finished run, in Ableton only. The channel filter does not apply here: a machine has no channel.</p>`);
-  // 3. The tour card by card: how many runs got at least as far as each card, and how many pressed
-  // Skip on it. Open and Add exist in a chain tour only, so they are counted over chain tours.
+    <p class="note" style="margin-top:10px">Every machine the plugin reported from, whether or not a sign-up can be tied to it: the paid installs are customers, and they never show on the rest of this tab. Each moment counts once per machine. The Ableton question comes after a finished run, in Ableton only. The two buttons show only while a pass runs. The channel filter does not apply here: a machine has no channel.</p>`);
+  // 3. The tour card by card: how many runs reached each card (the cards each run reported, cm), and
+  // how many pressed Skip on it. Two tours share the list, so "got at least this far" no longer says
+  // which cards a run passed. Open, Add and Open add map exist in a chain tour only, so they are
+  // counted over chain tours; a card nobody reached or skipped in the range stays off the list.
   const reached = TOUR_CARDS.map(() => 0), skipped = TOUR_CARDS.map(() => 0), runs = TOUR_CARDS.map(() => 0);
-  const CHAIN_ONLY = new Set(['open', 'add']);
+  const CHAIN_ONLY = new Set(['open', 'add', 'own']);
   let started = 0;
   for (const r of ONB) {
     if (r.i < lo || r.i > hi || !r.st) continue;
@@ -1829,14 +1840,73 @@ function onboardingCards(c) {
     TOUR_CARDS.forEach(([k], j) => {
       if (CHAIN_ONLY.has(k) && r.pk !== 'chain') return;
       runs[j]++;
-      if (j < r.st) reached[j]++;
+      if ((r.cm || 0) & (1 << j)) reached[j]++;
     });
     if (r.sk) skipped[r.sk - 1]++;
   }
-  const tour = started ? `<div class="fpath">${TOUR_CARDS.map(([k, label], j) => frow(label, skipped[j] ? `${fmt.num(skipped[j])} pressed Skip here` : (CHAIN_ONLY.has(k) ? 'chain tours only' : ''), reached[j], started, `<span><b>${runs[j] ? fmt.pct(reached[j] / runs[j]) : '—'}</b> of the ${fmt.num(runs[j])} runs that have this card</span>`)).join('')}</div>
-      <p class="note" style="margin-top:8px">Each card counts the runs that got at least that far. The plain walkthrough has no Open or Add card, so those two count chain tours only.</p>`
+  const tour = started ? `<div class="fpath">${TOUR_CARDS.map(([k, label], j) => (reached[j] || skipped[j]) ? frow(label, skipped[j] ? `${fmt.num(skipped[j])} pressed Skip here` : (CHAIN_ONLY.has(k) ? 'chain tours only' : ''), reached[j], started, `<span><b>${runs[j] ? fmt.pct(reached[j] / runs[j]) : '—'}</b> of the ${fmt.num(runs[j])} ${CHAIN_ONLY.has(k) ? 'chain tours' : 'runs'}</span>`) : '').join('')}</div>
+      <p class="note" style="margin-top:8px">Each card counts the runs that reached it. The plain walkthrough has no Open, Add or Open, add, map card, so those count chain tours only. The cards marked before 2.3.12 belong to the longer tour of the builds before it. The other lane icons and Open, add, map count from the backend update that adds them: a run that reached one before it is not counted there, a Skip pressed on one is.</p>`
     : `<p class="empty">Counted from the plugin build after 2.3.8: the plugin reports each card a machine reaches and the card a Skip was pressed on. Until then, the table above shows how far each machine got.</p>`;
   return paths + machines + card('The walkthrough, card by card', started ? `${fmt.num(started)} machines whose run reported its cards in this range` : '', tour);
+}
+
+/* ---------- Demo: the walkthrough film (Yossi 2026-11-23, in Hebrew, translated: "so we can see in the ADMIN how many people watch, how many finished, etc.") ---------- */
+// One record per machine the film opened on, from Stride 2.3.28 (health.build_walk_video): wv = bits as
+// health.WALK_STEPS, how = the way it first opened (1 + the health.WALK_HOW index), sp = the share watched
+// at a Skip (-1 none), rt = the speed it reached the end at (100 / 125 / 150), fl = it did not load
+// (1 an error, 2 nothing after 15 s), em = its pass carries a confirmed email, own / b as the first run.
+const WV_BITS = { opened: 1, played: 2, q25: 4, q50: 8, q75: 16, done: 32, skipped: 64, failed: 128 };
+// How far a machine got: 4 the end, 3 three quarters, 2 half, 1 a quarter, 0 less. A later moment
+// holds the earlier ones, so a send that got lost never makes the path go backwards.
+const wvDepth = r => r.wv & WV_BITS.done ? 4 : r.wv & WV_BITS.q75 ? 3 : r.wv & WV_BITS.q50 ? 2 : r.wv & WV_BITS.q25 ? 1 : 0;
+const wvPlayed = r => !!(r.wv & WV_BITS.played) || wvDepth(r) > 0;
+const WV_WAYS = [['By itself, after a Discovery Pass started', h => h === 1 || h === 2, 'Start My 7-Day Pass, or its 7 days taken later'],
+  ['By itself, after a license key', h => h === 3, 'a buyer activating Stride'],
+  ['By hand first', h => h === 4 || h === 5, 'the canvas button or the Guide'],
+  ['Way not reported', h => !(h >= 1 && h <= 5), 'its open never reached us']];
+const WV_SKIP = [['In the first 10%', 0, 10], ['10 to 25%', 10, 25], ['25 to 50%', 25, 50], ['50 to 75%', 50, 75], ['After 75%', 75, 101]];
+function walkVideoCards(c) {
+  const lo = c.idx[0], hi = c.idx[c.idx.length - 1];
+  const R = WV.filter(r => r.i >= lo && r.i <= hi), n = R.length;
+  if (!n) return card('The walkthrough film', '', `<p class="empty">Counted from Stride 2.3.28: each machine reports when the film opens, when it really plays, how much of it gets watched, a Skip and a film that did not load. Nothing has come in for this range yet.</p>`);
+  const pct = (v, of) => of ? fmt.pct(v / of) : '—';
+  const at = k => R.filter(r => wvDepth(r) >= k).length;
+  // 1. The film, step by step: every machine it opened on in the range.
+  const steps = [['Opened', 'the popup came up', n], ['Started playing', 'the film really played', R.filter(wvPlayed).length],
+    ['Watched a quarter', '', at(1)], ['Watched half', '', at(2)], ['Watched three quarters', '', at(3)],
+    ['Watched it to the end', '90% of it or more', at(4)]];
+  const path = `<div class="fpath">${steps.map(([name, sub, v]) => frow(name, sub, v, n, `<span><b>${pct(v, n)}</b> of those it opened for</span>`)).join('')}</div>`;
+  const cell = (v, of) => of ? `${fmt.num(v)} <small>(${pct(v, of)})</small>` : '—';
+  const ways = WV_WAYS.map(([name, test, why]) => {
+    const W = R.filter(r => test(r.how)), m = W.length;
+    if (!m && name === 'Way not reported') return '';
+    return `<tr><td>${esc(name)}<small class="subj">${esc(why)}</small></td><td>${fmt.num(m)}</td><td>${cell(W.filter(wvPlayed).length, m)}</td><td>${cell(W.filter(r => wvDepth(r) === 4).length, m)}</td><td>${cell(W.filter(r => r.wv & WV_BITS.skipped).length, m)}</td><td>${cell(W.filter(r => r.wv & WV_BITS.failed).length, m)}</td></tr>`;
+  }).join('');
+  const done = R.filter(r => wvDepth(r) === 4), sp = v => done.filter(r => r.rt === v).length;
+  const fails = R.filter(r => r.wv & WV_BITS.failed), err = fails.filter(r => r.fl === 1).length;
+  const film = card('The walkthrough film', `${fmt.num(n)} machines it opened on in this range, by the day it first opened there`,
+    `${path}
+    <div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>How it first opened</th><th>Machines</th><th>Played</th><th>Watched to the end</th><th>Pressed Skip or Close</th><th>Did not load</th></tr></thead><tbody>${ways}</tbody></table></div>
+    <p class="note" style="margin-top:10px"><b>Watched</b> counts the seconds that really played on that machine, over every time the film opened there: jumping ahead counts for nothing, watching a part twice counts once. <b>Started playing</b> means the film really ran; a web view that refuses autoplay waits for the big Play button.${done.length ? ` Speed when they reached the end: 1x for ${fmt.num(sp(100))}, 1.25x for ${fmt.num(sp(125))}, 1.5x for ${fmt.num(sp(150))}.` : ''}${fails.length ? ` Did not load: ${fmt.num(err)} with an error, ${fmt.num(fails.length - err)} with nothing after 15 seconds.` : ''} Each moment counts once per machine. Stride 2.3.28 and later report it; older builds send nothing. The channel filter does not apply here: a machine has no channel.</p>`);
+  // 2. Where a Skip or a Close came, as a share of the film watched by then.
+  const sk = R.filter(r => (r.wv & WV_BITS.skipped) && r.sp >= 0), ns = sk.length;
+  const bars = WV_SKIP.map(([name, a, b]) => { const v = sk.filter(r => r.sp >= a && r.sp < b).length, s = ns ? v / ns : null;
+    return `<div class="hbar"><div class="nm">${esc(name)}<small>${fmt.num(v)} ${v === 1 ? 'machine' : 'machines'}</small></div><div class="tr"><i style="width:${s == null ? 0 : Math.min(100, s * 100).toFixed(1)}%"></i></div><div class="v">${fmt.pct(s)}</div></div>`; }).join('');
+  const skips = card('Where they pressed Skip or Close', ns ? `${fmt.num(ns)} machines closed it before the end, by how much they had watched` : '',
+    ns ? `<div class="hbars">${bars}</div><p class="note" style="margin-top:10px">The first time on each machine, once the film had played. Closing it after the end, or a pass running out under it, is not counted.</p>`
+      : `<p class="empty">Nobody in this range closed the film before the end.</p>`);
+  // 3. Discovery Passes it opened for by itself, by how far they watched, and how each group bought.
+  const P = R.filter(r => (r.how === 1 || r.how === 2) && r.em && !r.own);
+  const G = [['Did not play it', r => !wvPlayed(r)], ['Played it, under a quarter', r => wvPlayed(r) && wvDepth(r) === 0],
+    ['A quarter or more, not the end', r => wvDepth(r) >= 1 && wvDepth(r) < 4], ['Watched it to the end', r => wvDepth(r) === 4]];
+  const grows = G.map(([name, test]) => { const x = { n: 0, buy: 0, open: 0 };
+    for (const r of P) { if (!test(r)) continue; x.n++; if (r.b >= 0 && r.b <= 30 && r.i + r.b <= LAST) x.buy++; else if (LAST - r.i < 30) x.open++; }
+    return `<tr><td>${esc(name)}</td><td>${fmt.num(x.n)}</td><td>${fmt.num(x.buy)}</td><td>${x.n ? fmt.pct(x.buy / x.n) : '—'}</td><td>${x.open ? fmt.num(x.open) : '—'}</td></tr>`; }).join('');
+  const buys = card('Discovery Passes, by how much of the film they watched', P.length ? `${fmt.num(P.length)} passes it opened for by itself` : '',
+    P.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Watched</th><th>People</th><th style="white-space:normal">Bought within 30 days</th><th>Buy rate</th><th style="white-space:normal">Still inside their 30 days</th></tr></thead><tbody>${grows}</tbody></table></div>
+      <p class="note" style="margin-top:10px">Passes with their confirmed email, from people who did not own Stride yet. Watching and buying going together does not prove the film sold it: the keenest people do both. “Still inside their 30 days” have not bought yet but still can.</p>`
+      : `<p class="empty">No Discovery Pass with a confirmed email had the film open by itself in this range.</p>`);
+  return film + `<div class="grid-2">${skips}${buys}</div>`;
 }
 
 /* ---------- Email flows: numbers, switches, and the copy itself ---------- */
