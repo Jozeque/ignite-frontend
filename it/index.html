@@ -7275,6 +7275,7 @@ function openBuy() { toggleBuyModal(); }
                     frameInitialHeight: 450,
                     frameStyle: 'width:100%;min-width:312px;background-color:transparent;border:none;',
                     variant: 'one-page',
+                    showAddDiscounts: !window.STRIDE_BF_ON,   // as the real checkout has it (strideOpenCheckout)
                     // Every payment method, as the real checkout has: Paddle draws its payment form
                     // only once Stripe's wallet check (about 1 MB of Stripe) and Google Pay are
                     // loaded, so those are worth caching too. Card alone loaded Stripe anyway.
@@ -7642,6 +7643,10 @@ function openBuy() { toggleBuyModal(); }
                     successUrl: strideSuccessUrl()
                 };
                 if (opts && opts.methods) settings.allowedPaymentMethods = opts.methods;
+                // Black Friday (Yossi 2026-11-26: "do what's needed so it works"): every price already holds the 30%,
+                // and the mails' code BLACKFRIDAY is the site's, not a Paddle code, so Paddle's own "Add discount" box
+                // could only say no to it (and no code there can come off a whole price). Off while the sale runs.
+                if (window.STRIDE_BF_ON) settings.showAddDiscounts = false;
                 Paddle.Checkout.open({
                     items: order.items,
                     discountId: order.discountId || undefined,

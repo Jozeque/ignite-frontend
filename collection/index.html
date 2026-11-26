@@ -2011,7 +2011,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       // Black Friday's half as its whole prices (BF_WHOLE), with no discount.
       var o = { items: bf ? bfItems(cartItems(t)) : cartItems(t),
         settings: { displayMode: 'inline', frameTarget: 'stride-paddle-warm', frameInitialHeight: 450,
-          frameStyle: 'width:100%;min-width:312px;background-color:transparent;border:none;', variant: 'one-page', theme: 'dark' } };
+          frameStyle: 'width:100%;min-width:312px;background-color:transparent;border:none;', variant: 'one-page', theme: 'dark',
+          showAddDiscounts: !bf } };
       Paddle.Checkout.open(o);
     } catch (e) { warmLive = false; }
   }
@@ -2044,8 +2045,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       try { sessionStorage.setItem('stride_checkout_value', JSON.stringify(value)); } catch (e2) {}
       try { if (window.strideClarity) window.strideClarity(clarityName); } catch (e2) {}
       // Black Friday's half, the price the page shows: its whole prices (BF_WHOLE), with no discount.
+      // Paddle's own "Add discount" box is off while the half runs (2026-11-26): every price already holds it, the mails'
+      // code BLACKFRIDAY is the homepage's and not a Paddle code, and no code there can come off a whole price.
       var open = { items: bf ? bfItems(items) : items, customData: custom(),
-        settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark', successUrl: 'https://stridehub.io/welcome.html' } };
+        settings: { displayMode: 'overlay', variant: 'one-page', theme: 'dark', successUrl: 'https://stridehub.io/welcome.html',
+          showAddDiscounts: !bf } };
       Paddle.Checkout.open(open);
       note(noteSel, '');
     } catch (e) { note(noteSel, FAILED); }
