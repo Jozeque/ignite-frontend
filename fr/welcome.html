@@ -806,6 +806,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .w-dl .dl-row{gap:10px}
   .w-dl .dl-row .btn-copper{flex:1 1 220px;padding:15px 18px;font-size:15px;border-radius:12px}
   .w-dl .dl-note{margin:14px 0 0;text-align:center;font-size:12.5px}
+  .w-dl .dl-keys{margin:18px 0 0}
+  .w-dl .dl-key-l{margin:0 0 6px;text-align:center}
+  .w-dl .dl-key{justify-content:center;margin:0 0 12px}
   /* The platform marks, drawn in the button's own ink. CSS rather than markup, because the
      download script writes each button's label and would wipe an icon inside it. */
   .dl-os::before{content:"";flex:0 0 auto;width:19px;height:19px;background:currentColor;
@@ -892,6 +895,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mkc-half{margin:0 0 12px;font-size:12.5px;line-height:1.5;color:var(--ink2)}
   .mkc-wl{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
   .mkc-needs{margin:8px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink3)}
+  /* The add-on receipt and the My purchases line (2026-11-14), both built by the script. */
+  .adr{margin:18px 0 0;padding:18px 18px 16px;border:1px solid var(--line);border-radius:16px;background:rgba(27,24,19,.72)}
+  .adr-k{margin:0 0 6px}
+  .adr-h{margin:0;font-size:19px;font-weight:900;color:var(--ink);line-height:1.25}
+  .adr-p{margin:6px 0 0;font-size:13.5px;line-height:1.55;color:var(--ink2)}
+  .adr-p a{color:var(--copper-lt)}
+  .adr-row{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 0}
+  .adr-row:empty{display:none}
+  .adr-dl{flex:1 1 180px;padding:12px 16px;font-size:13px;border-radius:12px;text-decoration:none}
+  .adr-s{margin:10px 0 0;font-size:12px;line-height:1.55;color:var(--ink3)}
+  .adr-pw{margin:10px 0 0;font-size:12px;line-height:1.5;color:var(--ink3);text-align:center}
+  .adr-pw a{color:var(--copper-lt)}
+  .adr-pw button{background:none;border:0;padding:0;font:inherit;color:var(--copper-lt);text-decoration:underline;cursor:pointer}
+  .adr-pw button[disabled]{opacity:.6;cursor:default}
   .mkc-legal{margin:8px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink3)}
   .mkc-legal a{color:inherit;text-decoration:underline}
   .mkc-buy[disabled]{opacity:.5;cursor:default;transform:none}
@@ -1368,6 +1385,90 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } catch (e) {}
   }
 
+  // The add-on just paid on this page, after the reload its checkout brings (2026-11-14): its download buttons right
+  // here, so the mail is a copy and not the only way in. addon_receipt is asked with the Stride purchase AND the add-on
+  // it opened, and answers once the webhook has fulfilled the order, so it is asked every 2 seconds for up to 40; after
+  // that the inbox line stands, with My purchases beside it. Built here in English, like Tendril's thank-you: a new
+  // string in the markup would take every translated copy of this page down until each language had it.
+  (function addonReceipt() {
+    var paid = null;
+    try { paid = JSON.parse(ss('stride_addon_paid') || 'null'); } catch (e) {}
+    if (!paid || paid.txn !== txn || !/^txn_[0-9a-z]{26}$/.test(String(paid.tid || ''))
+        || Date.now() - Number(paid.at || 0) > 6 * 3600e3) return;
+    var anchor = document.getElementById('dl-block');
+    if (!anchor || !anchor.parentNode) return;
+    function mk(tag, cls, text) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text) n.textContent = text;
+      return n;
+    }
+    function purchasesLink(before, after) {
+      var p = mk('p', 'adr-p adr-tail');
+      p.appendChild(document.createTextNode(before));
+      var a = mk('a', '', 'My purchases');
+      a.href = '/purchases/';
+      p.appendChild(a);
+      p.appendChild(document.createTextNode(after));
+      return p;
+    }
+    var box = mk('section', 'adr');
+    box.setAttribute('aria-live', 'polite');
+    box.setAttribute('data-clarity-mask', 'True');
+    box.appendChild(mk('p', 'silk adr-k', 'Thank you'));
+    var head = mk('p', 'adr-h', 'Your downloads are on the way.');
+    var sub = mk('p', 'adr-p', 'They show up right here in a few seconds.');
+    var row = mk('div', 'adr-row');
+    var notes = mk('div');
+    var tail = purchasesLink('A copy is on its way to your inbox, and everything stays in ', '.');
+    [head, sub, row, notes, tail].forEach(function (n) { box.appendChild(n); });
+    anchor.parentNode.insertBefore(box, anchor.nextSibling);
+    var HEADS = { 'The Stride Collection': 'The Stride Collection is yours.',
+                  'StrideChains': 'Your StrideChains are yours.',
+                  'StrideChains and Sounds & Racks': 'Your StrideChains and the Sounds & Racks are yours.',
+                  'Experimental Collection': 'The Experimental Collection is yours.' };
+    function got(d) {
+      head.textContent = HEADS[d.title] || 'They are yours.';
+      sub.textContent = 'Download them right here.';
+      row.innerHTML = '';
+      notes.innerHTML = '';
+      var chains = false, sounds = false;
+      (d.files || []).forEach(function (f) {
+        if (!/^https:\/\//.test(String(f.url || ''))) return;
+        var a = mk('a', 'btn-copper adr-dl', f.group === 'sounds' ? 'Download the Sounds & Racks' : 'Download ' + f.label);
+        a.href = f.url;
+        a.rel = 'nofollow';
+        a.addEventListener('click', function () { clarity(f.group === 'sounds' ? 'welcome_addon_sounds' : 'welcome_addon_chains'); });
+        row.appendChild(a);
+        if (f.group === 'sounds') sounds = true; else chains = true;
+      });
+      if (chains) notes.appendChild(mk('p', 'adr-s', 'Unzip the StrideChains into Documents/Stride/chains (on a Mac: ~/Documents/Stride/chains), then hit Load in Stride, pick a chain and one of its five states, and press play.'));
+      if (sounds) notes.appendChild(mk('p', 'adr-s', 'Drop the racks into your User Library and they show up in Live\'s browser.'));
+      clarity('welcome_addon_got');
+    }
+    function late() {
+      head.textContent = 'They are yours.';
+      sub.textContent = 'Your download links are on their way to your inbox. They usually land within a minute.';
+      var t = purchasesLink('They\'ll also be in ', '.');
+      box.replaceChild(t, tail);
+      tail = t;
+    }
+    var until = Date.now() + 40000;
+    function again() { if (Date.now() < until) setTimeout(ask, 2000); else late(); }
+    function ask() {
+      fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ action: 'addon_receipt', txn: txn, transaction_id: paid.tid }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.ok && d.status === 'ready' && (d.files || []).length) { got(d); return; }
+          if (d && d.status === 'invalid') { late(); return; }
+          again();
+        })
+        .catch(again);
+    }
+    ask();
+  })();
+
   // One state per card, because the two offers are independent. The Collection's is
   // { expires, skew } plus the money its button reports; Tendril's is the price it was quoted.
   // openKind: which checkout is open, so a completed one is read for what it was.
@@ -1474,6 +1575,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             try {
               var data = ev.data || {};
               if (data.transaction_id) ssSet('stride_last_txn', String(data.transaction_id));
+              // The add-on's own receipt, on the reload the success URL brings (addonReceipt below, 2026-11-14).
+              if (data.transaction_id) ssSet('stride_addon_paid', JSON.stringify({ txn: txn, tid: String(data.transaction_id), at: Date.now() }));
               var paid = Number((data.totals || {}).total);
               if (paid > 0 && data.currency_code) {
                 ssSet('stride_checkout_value', JSON.stringify({ value: paid, currency: String(data.currency_code) }));
@@ -1924,6 +2027,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   function tdrThanks() {
     var box = qt('.tdr-done');
     if (!box) return;
+    // Tendril's key shows in here: kept out of Clarity's recordings, as the keys beside the download are (2026-11-28).
+    box.setAttribute('data-clarity-mask', 'True');
     qt('.tdr-offer').hidden = true;
     qt('.tdr-public').hidden = true;
     tdrNote('');
@@ -2178,10 +2283,142 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           n.appendChild(a);
         }
       }
+      // My purchases (2026-11-14): every key and download in one place, behind a password mailed on request. With a
+      // purchase in this tab, one press mails that password to the address it was bought with; the page never sees it.
+      var mp = document.createElement('p');
+      mp.className = 'adr-pw';
+      var mpLine = function (before) {
+        mp.textContent = before;
+        var a = document.createElement('a');
+        a.href = '/purchases/';
+        a.textContent = 'My purchases';
+        mp.appendChild(a);
+      };
+      mpLine('Your keys and downloads also live in ');
+      mp.appendChild(document.createTextNode('.'));
+      var held = ss('stride_offer_txn') || ss('stride_last_txn');
+      if (/^txn_[0-9a-z]{26}$/.test(held)) {
+        mp.appendChild(document.createTextNode(' '));
+        var mb = document.createElement('button');
+        mb.type = 'button';
+        mb.textContent = 'Email me a password';
+        mb.addEventListener('click', function () {
+          mb.disabled = true;
+          fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify({ action: 'purchases_password', txn: held }) })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (d && d.ok) { mpLine('A password is on its way to the email you bought with. Then sign in to '); mp.appendChild(document.createTextNode('.')); return; }
+              mb.disabled = false;
+              mb.textContent = d && d.status === 'rate_limited' ? 'Too many tries. Try again in an hour' : 'That did not go through. Try again';
+            })
+            .catch(function () { mb.disabled = false; mb.textContent = 'That did not go through. Try again'; });
+        });
+        mp.appendChild(mb);
+      }
+      box.appendChild(mp);
       box.hidden = false;
+      askKeys();
     }
   }
   window.strideShowDownloads = show;
+
+  // The keys beside the download (Yossi 2026-11-28, in Hebrew, translated: "put the serial number of the products they
+  // bought on the welcome page, in addition to the download"). Only in the tab that paid: welcome_keys answers this
+  // purchase together with the checkout's own event id (stride_paid.eid, which that checkout also put in Paddle's
+  // custom_data). A page opened from the mail's link never has it, so there the inbox line stands. The pair is kept as
+  // stride_key_proof the first time this tab sees it, since an add-on bought here rewrites stride_paid; the key itself
+  // is never kept: it is asked for on each visit, and Clarity's recordings never see it.
+  function clarity(name) { try { if (window.strideClarity) window.strideClarity(name); } catch (e) {} }
+  function keyProof(t) {
+    var p = null;
+    try { p = JSON.parse(ss('stride_key_proof') || 'null'); } catch (e) {}
+    if (p && p.txn === t && p.eid) return String(p.eid);
+    var paid = null;
+    try { paid = JSON.parse(ss('stride_paid') || 'null'); } catch (e) {}
+    if (!paid || paid.txn !== t || !paid.eid || Date.now() - Number(paid.ts || 0) > 6 * 3600e3) return '';
+    try { sessionStorage.setItem('stride_key_proof', JSON.stringify({ txn: t, eid: String(paid.eid) })); } catch (e) {}
+    return String(paid.eid);
+  }
+  function copyButton(code) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tdr-ghost';
+    b.textContent = 'Copy';
+    b.addEventListener('click', function () {
+      var said = function (text) {
+        b.textContent = text;
+        setTimeout(function () { b.textContent = 'Copy'; }, 2000);
+      };
+      // No clipboard access (an older browser, an http preview): select the key and copy it the old way.
+      var byHand = function () {
+        var copied = false;
+        try {
+          var range = document.createRange();
+          range.selectNodeContents(code);
+          var sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          copied = document.execCommand('copy');
+        } catch (e) {}
+        said(copied ? 'Copied' : 'Selected');
+      };
+      try { navigator.clipboard.writeText(code.textContent || '').then(function () { said('Copied'); }, byHand); }
+      catch (e) { byHand(); }
+    });
+    return b;
+  }
+  function showKeys(list) {
+    var keys = (list || []).filter(function (k) { return k && k.key; });
+    if (!keys.length || box.querySelector('.dl-keys')) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'dl-keys';
+    wrap.setAttribute('data-clarity-mask', 'True');
+    keys.forEach(function (k) {
+      var l = document.createElement('p');
+      l.className = 'silk dl-key-l';
+      l.textContent = k.product === 'Tendril' ? 'Your Tendril key' : 'Your Stride key';
+      var row = document.createElement('div');
+      row.className = 'tdr-key dl-key';
+      var code = document.createElement('code');
+      code.textContent = String(k.key);
+      row.appendChild(code);
+      row.appendChild(copyButton(code));
+      wrap.appendChild(l);
+      wrap.appendChild(row);
+    });
+    var n = box.querySelector('.dl-note');
+    box.insertBefore(wrap, n || null);
+    if (n) {
+      n.textContent = keys.length > 1
+        ? 'Each plugin asks for its own key the first time you open it. Both are in your welcome email too. '
+        : 'Stride asks for it the first time you open it. It is in your welcome email too. ';
+      var a = document.createElement('a');
+      a.href = 'setup.html';
+      a.textContent = 'Setup guide →';
+      n.appendChild(a);
+    }
+    clarity('welcome_keys_shown');
+  }
+  function askKeys() {
+    var t = ss('stride_offer_txn') || ss('stride_last_txn');
+    if (!/^txn_[0-9a-z]{26}$/.test(t)) return;
+    var eid = keyProof(t);
+    if (!eid) return;
+    var until = Date.now() + 40000;
+    var again = function () { if (Date.now() < until) setTimeout(ask, 2000); };
+    function ask() {
+      fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ action: 'welcome_keys', txn: t, eid: eid }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.ok && d.status === 'ready') { showKeys(d.keys); return; }
+          if (d && d.ok && d.status === 'pending') again();
+        })
+        .catch(again);
+    }
+    ask();
+  }
 
   function ss(k) { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } }
   // With a transaction the rail is already asking and will feed us. Without one it

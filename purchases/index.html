@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My purchases | Stride</title>
+<meta name="description" content="Your Stride keys and downloads, any time.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>
+@font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+  @font-face{font-family:'Outfit';font-style:normal;font-weight:300 900;font-display:swap;src:url(/assets/fonts/outfit-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+:root{
+  --bg:#141310; --bg2:#191611; --raise:#252119; --card:#1b1813;
+  --line:rgba(216,201,176,.11); --line2:rgba(216,201,176,.2);
+  --ink:#ece4d6; --ink2:#b8ad9b; --ink3:#857c6e;
+  --copper:#c6712b; --copper-lt:#dd9a52; --ember:#e58a2e; --ok:#8fae86; --bad:#e08b7a;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;font-family:'Outfit',sans-serif;
+     background:var(--bg);color:var(--ink2);-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.5}
+[hidden]{display:none !important}
+a{color:var(--copper-lt)}
+h1,h2,h3{color:var(--ink);margin:0}
+h1:focus,h2:focus{outline:none}
+:focus-visible{outline:2px solid var(--copper-lt);outline-offset:2px}
+.wrap{width:100%;max-width:880px;margin:0 auto;padding:0 18px}
+.silk{font-size:10px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;color:var(--ink3)}
+header{border-bottom:1px solid var(--line);background:rgba(20,19,16,.9);backdrop-filter:blur(8px)}
+.hrow{display:flex;align-items:center;justify-content:space-between;height:56px}
+.logo{font-weight:900;font-size:17px;letter-spacing:-.02em;text-decoration:none;background:linear-gradient(90deg,var(--copper-lt),var(--ember));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+main{flex:1}
+main.wrap{padding-top:42px;padding-bottom:60px}
+footer{border-top:1px solid var(--line);padding:22px 0}
+footer a{color:var(--ink3);text-decoration:none}
+
+.panel{max-width:440px;margin:0 auto}
+.panel h1{font-size:30px;font-weight:900;letter-spacing:-.02em;line-height:1.15}
+.lead{margin:10px 0 26px;color:var(--ink2);font-size:15px}
+label{display:block;font-size:12px;font-weight:700;color:var(--ink2);margin:0 0 6px}
+input{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px solid var(--line2);
+      border-radius:10px;padding:12px 14px;margin:0 0 16px}
+input:focus{outline:none;border-color:var(--copper-lt)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border:0;cursor:pointer;text-decoration:none;
+     font:inherit;font-weight:800;font-size:14px;color:#17130f;background:linear-gradient(180deg,var(--ember),var(--copper));
+     border-radius:10px;padding:12px 20px;transition:filter .15s,transform .15s}
+.btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
+.btn[aria-busy="true"]{opacity:.65;pointer-events:none}
+.btn.wide{width:100%}
+.btn.ghost{background:transparent;color:var(--ink2);border:1px solid var(--line2);font-weight:700}
+.btn.ghost:hover{color:var(--ink);border-color:var(--copper-lt)}
+.btn.small{font-size:12px;padding:7px 12px;border-radius:8px}
+.linkish{background:none;border:0;padding:0;font:inherit;color:var(--copper-lt);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.msg{min-height:0;margin:14px 0 0;font-size:13.5px;line-height:1.5;color:var(--ink2)}
+.msg.bad{color:var(--bad)}
+.msg.good{color:var(--ok)}
+.alt{margin:22px 0 0;font-size:13.5px;color:var(--ink3)}
+.help{margin:30px 0 0;font-size:12.5px;color:var(--ink3)}
+.help a{color:var(--ink2)}
+
+.acct{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin:0 0 26px}
+.acct h1{font-size:28px;font-weight:900;letter-spacing:-.02em}
+.acct .who{font-size:13px;color:var(--ink3);margin:4px 0 0;word-break:break-all}
+.acct .tools{display:flex;gap:8px;flex-wrap:wrap}
+.phone{margin:0 0 20px;padding:12px 14px;border:1px solid var(--line2);border-radius:10px;font-size:13.5px;background:var(--bg2)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 22px 20px;margin:0 0 18px}
+.card h2{font-size:20px;font-weight:900;letter-spacing:-.01em;line-height:1.25}
+.meta{margin:4px 0 0;font-size:12.5px;color:var(--ink3);word-break:break-all}
+.state{margin:14px 0 0;font-size:14px;color:var(--ink2)}
+.block{margin:20px 0 0}
+.block h3{font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:var(--ink3);margin:0 0 10px}
+.keyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.keyrow code{font-family:Consolas,Menlo,monospace;font-size:15px;letter-spacing:1px;color:var(--ink);background:var(--bg);
+             border:1px solid var(--line2);border-radius:8px;padding:10px 12px;word-break:break-all}
+.slots{margin:6px 0 0;font-size:12.5px;color:var(--ink3)}
+.dls{display:flex;flex-wrap:wrap;gap:10px}
+.dl{display:flex;flex-direction:column;gap:5px;min-width:150px;flex:1 1 150px}
+.dl .btn{width:100%}
+.dl small{font-size:11.5px;color:var(--ink3);text-align:center}
+.dl small.got{color:var(--ok)}
+.note{margin:10px 0 0;font-size:12.5px;line-height:1.55;color:var(--ink3)}
+.note code{font-family:Consolas,Menlo,monospace;color:var(--ink2)}
+.links{margin:10px 0 0;font-size:13px}
+.links a{margin-right:16px}
+details{margin:18px 0 0;border-top:1px solid var(--line);padding-top:14px}
+summary{cursor:pointer;font-weight:700;color:var(--ink2);font-size:14px}
+.empty{padding:26px 22px;border:1px dashed var(--line2);border-radius:16px;font-size:14.5px}
+@media (max-width:640px){
+  main.wrap{padding-top:28px;padding-bottom:46px}
+  .panel h1{font-size:26px}
+  .card{padding:18px 16px}
+}
+</style>
+<meta property="og:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Stride, the sound design engine: every lane of the chain in motion">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://stridehub.io/media/stride/og/stride-share-1200x630.jpg">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<script>window.STRIDE_LANGS=["en"]</script>
+<script>(function () {
+  var view = null, pressed = {};
+  // This page view: its page key, channel, ad id and Meta-id flag, read once.
+  function read() {
+    if (view) return view;
+    var L = ["de","es","fr","it","ja","zh"], K = {"":"home","try":"try","samples":"samples","setup":"setup","session":"session","welcome":"welcome","post":"post","post2":"post2","tendril":"tendril","blog":"blog","tv":"tv","tools":"tool","vst3":"how","how-it-works":"how","privacy":"legal","terms":"legal","refund":"legal"};
+    var path = location.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '').replace(/\/+$/, '');
+    var seg = path.split('/');
+    if (seg[1] && L.indexOf(seg[1]) >= 0) seg.splice(1, 1);
+    var first = seg[1] || '';
+    var p = Object.prototype.hasOwnProperty.call(K, first) ? K[first] : 'other';
+    var q = new URLSearchParams(location.search), rh = '';
+    try { rh = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {}
+    var nav = (window.performance && performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+    var here = location.hostname.replace(/^www\./, ''), c = 'direct', a = '', m = 0;
+    if (nav.type === 'reload' || nav.type === 'back_forward' || (rh && rh.replace(/^www\./, '') === here)) c = 'internal';
+    else {
+      var ad = (q.get('ad_id') || '').trim(), s = (q.get('utm_source') || '').trim().toLowerCase();
+      var fromMeta = /^(fb|ig|msg|an|meta|facebook|instagram)$/.test(s), mid = (q.get('utm_content') || '').trim();
+      if (/^\d{6,24}$/.test(ad)) { c = 'meta'; a = ad; }
+      else if (q.get('gclid') || q.get('wbraid') || q.get('gbraid')) c = 'google';
+      else if (fromMeta && /^\d{6,24}$/.test(mid)) { c = 'meta'; a = mid; m = 1; }
+      else if (fromMeta && (q.get('utm_campaign') || '').indexOf('|') >= 0) c = 'meta';
+      else if (/^(stride|email|newsletter|resend|mail)$/.test(s)) c = 'email';
+      else if (/^(ig|instagram|insta|ig_bio|instagram_bio)$/.test(s)) c = 'ig';
+      else if (/^(yt|youtube)$/.test(s)) c = 'yt';
+      else if (/^(google|adwords|google_ads|gads)$/.test(s)) c = 'google';
+      else if (/^(facebook|fb|meta)$/.test(s) || q.get('fbclid')) c = 'meta';
+      else if (/(^|\.)instagram\.com$/.test(rh)) c = 'ig';
+      else if (/(^|\.)(youtube\.com|youtu\.be)$/.test(rh)) c = 'yt';
+    }
+    view = { p: p, c: c, a: a, m: m };
+    return view;
+  }
+  // The device's time zone as the browser names it (Europe/Berlin), or '' when it will not say.
+  function zone() {
+    try { return String(Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 64); } catch (e) { return ''; }
+  }
+  function send() {
+    try {
+      if (!navigator.sendBeacon) return;
+      var v = read(), body = { action: 'pv', p: v.p, c: v.c, a: v.a };
+      if (v.m) body.m = 1;
+      // The 30%'s A/B (2026-11-11): the side this browser is on, set by the script in <head> that picks it.
+      if (window.STRIDE_BF_ARM) body.x = window.STRIDE_BF_ARM;
+      // The device's time zone (2026-11-23): the backend keeps only the country it names.
+      body.z = zone();
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(body));
+    } catch (e) {}
+  }
+  // A funnel step by the name the Clarity block gives it, counted when it is a press on the buy path.
+  var STEP = {"buy_form_open":"cta","paypal_button":"pay","wallet_payment_selected":"pay","wallet_payment_started":"pay","checkout_loaded":"co"};
+  window.strideStep = function (name) {
+    try {
+      var s = STEP[name];
+      if (!s || pressed[s] || !navigator.sendBeacon) return;
+      pressed[s] = 1;
+      var fs = { action: 'fs', s: s, c: read().c };
+      if (window.STRIDE_BF_ARM) fs.x = window.STRIDE_BF_ARM;     // the 30%'s A/B side, as on the page view
+      navigator.sendBeacon("https://generate-midi-z3spyrafvq-uc.a.run.app", JSON.stringify(fs));
+    } catch (e) {}
+  };
+  if (document.prerendering) document.addEventListener('prerenderingchange', send, { once: true });
+  else send();
+})();</script>
+</head>
+<body>
+
+<header><div class="wrap hrow">
+  <a class="logo" href="/">STRIDE</a>
+  <div class="silk">My purchases</div>
+</div></header>
+
+<main class="wrap">
+  <p id="v-loading" class="silk" aria-live="polite">Loading your purchases</p>
+
+  <section id="v-signin" class="panel" hidden>
+    <h1 tabindex="-1">My purchases</h1>
+    <p class="lead">Your keys and downloads, any time. Sign in with the email you bought with.</p>
+    <form id="f-signin" novalidate>
+      <label for="si-email">Email</label>
+      <input id="si-email" type="email" autocomplete="username" inputmode="email" required>
+      <label for="si-pw">Password</label>
+      <input id="si-pw" type="password" autocomplete="current-password" required>
+      <button class="btn wide" type="submit">Sign in</button>
+      <p class="msg" id="si-msg" aria-live="polite" hidden></p>
+    </form>
+    <p class="alt">First time here, or forgot your password? <button type="button" class="linkish" data-go="v-ask">Get a password by email</button></p>
+    <p class="help">Still stuck? Write to <a href="mailto:home@stridehub.io">home@stridehub.io</a> and Joe will sort it out.</p>
+  </section>
+
+  <section id="v-ask" class="panel" hidden>
+    <h1 tabindex="-1">Get a password by email</h1>
+    <p class="lead">Type the email you bought with and we'll mail you a password.</p>
+    <form id="f-ask" novalidate>
+      <label for="ask-email">Email</label>
+      <input id="ask-email" type="email" autocomplete="email" inputmode="email" required>
+      <button class="btn wide" type="submit">Email me a password</button>
+      <p class="msg" id="ask-msg" aria-live="polite" hidden></p>
+    </form>
+    <p class="alt">Not sure which email you used? Search your inbox for the receipt Paddle sent when you paid.</p>
+    <p class="alt">Got your password? <button type="button" class="linkish" data-go="v-signin">Sign in</button></p>
+    <p class="help">Still stuck? Write to <a href="mailto:home@stridehub.io">home@stridehub.io</a> and Joe will sort it out.</p>
+  </section>
+
+  <section id="v-orders" hidden>
+    <div class="acct">
+      <div>
+        <h1 tabindex="-1">My purchases</h1>
+        <p class="who">Signed in as <span id="who"></span></p>
+      </div>
+      <div class="tools">
+        <button type="button" class="btn ghost small" data-go="v-change">Change password</button>
+        <button type="button" class="btn ghost small" id="signout">Sign out</button>
+      </div>
+    </div>
+    <p class="phone" id="phone" hidden>The downloads are big. Open My purchases on the computer you make music on.</p>
+    <div id="orders"></div>
+    <p class="help">Something missing? Write to <a href="mailto:home@stridehub.io">home@stridehub.io</a> and Joe will sort it out.</p>
+  </section>
+
+  <section id="v-change" class="panel" hidden>
+    <h1 tabindex="-1">Change password</h1>
+    <p class="lead">At least 10 characters. Every other browser signs out.</p>
+    <form id="f-change" novalidate>
+      <input type="email" autocomplete="username" id="ch-user" hidden>
+      <label for="ch-cur">Current password</label>
+      <input id="ch-cur" type="password" autocomplete="current-password" required>
+      <label for="ch-new">New password</label>
+      <input id="ch-new" type="password" autocomplete="new-password" minlength="10" required>
+      <button class="btn wide" type="submit">Save</button>
+      <p class="msg" id="ch-msg" aria-live="polite" hidden></p>
+    </form>
+    <p class="alt"><button type="button" class="linkish" data-go="v-orders">Back to my purchases</button></p>
+  </section>
+</main>
+
+<footer><div class="wrap silk">Stride &middot; Sound design engine &middot; <a href="/privacy.html">Privacy</a> &middot; <a href="/refund.html">Refunds</a> &middot; <a href="/terms.html">Terms</a></div></footer>
+
+<script>
+// My purchases (2026-11-14): a buyer's keys and downloads behind a password mailed on request. The backend is
+// generate_midi's purchases_* actions (purchases_hub.py). Nothing here measures anyone: no analytics, no pixels, no
+// session recording, because this page shows license keys and download links. The sign-in token stays in this
+// browser's storage and is never put in a URL; neither is the email.
+(function () {
+  'use strict';
+  var API = 'https://generate-midi-z3spyrafvq-uc.a.run.app';
+  var STORE_KEY = 'stride_purchases';
+  var VIEWS = ['v-loading', 'v-signin', 'v-ask', 'v-orders', 'v-change'];
+  var TXT = {
+    wrong: "That email and password don't match.",
+    limit: 'Too many tries. Wait an hour, or get a new password by email.',
+    askLimit: 'Too many tries from this connection. Try again in an hour.',
+    oops: 'Something went wrong on our side. Try again in a minute, or write to home@stridehub.io.',
+    sent: 'If this email has a Stride purchase, your password is on its way. It usually lands within a minute. Check spam and promotions too.',
+    badEmail: "That doesn't look like an email address.",
+    weak: 'Use at least 10 characters, and not your email.',
+    current: "That's not your current password.",
+    saved: 'Saved. Every other browser is signed out.',
+    empty: 'No purchases on this email right now. Bought with another address? Sign out and use that one, or write to home@stridehub.io.',
+    signedOut: 'You were signed out. Sign in again.'
+  };
+  var memory = null;
+  var me = { email: '' };
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text) n.textContent = text;
+    return n;
+  }
+  function loadToken() {
+    var v = memory;
+    try { v = JSON.parse(localStorage.getItem(STORE_KEY) || 'null') || memory; } catch (e) {}
+    if (!v || !v.token || !v.exp || v.exp <= Date.now()) return '';
+    return v.token;
+  }
+  function saveToken(token, exp) {
+    memory = token ? { token: token, exp: exp } : null;
+    try {
+      if (token) localStorage.setItem(STORE_KEY, JSON.stringify(memory));
+      else localStorage.removeItem(STORE_KEY);
+    } catch (e) {}
+  }
+  function post(body) {
+    return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); });
+  }
+  function show(view) {
+    VIEWS.forEach(function (v) { $(v).hidden = v !== view; });
+    var h = $(view).querySelector('h1');
+    if (h) { try { h.focus({ preventScroll: false }); } catch (e) {} }
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+  function say(id, text, kind) {
+    var n = $(id);
+    n.textContent = text || '';
+    n.className = 'msg' + (kind ? ' ' + kind : '');
+    n.hidden = !text;
+  }
+  function busy(form, on) {
+    var b = form.querySelector('button[type="submit"]');
+    if (on) b.setAttribute('aria-busy', 'true'); else b.removeAttribute('aria-busy');
+  }
+  function validEmail(v) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v); }
+  function day(ms) {
+    if (!ms) return '';
+    try { return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+    catch (e) { return ''; }
+  }
+  function safe(url) { return /^https:\/\//.test(String(url || '')) ? String(url) : ''; }
+
+  // ── the orders ────────────────────────────────────────────────────────────
+  function dlButton(text, url, started, tracked) {
+    var href = safe(url);
+    if (!href) return null;
+    var box = el('div', 'dl');
+    var a = el('a', 'btn', text);
+    a.href = href;
+    a.rel = 'nofollow noopener';
+    box.appendChild(a);
+    if (tracked) {
+      box.appendChild(started ? el('small', 'got', 'Downloaded ' + day(started)) : el('small', '', 'Not downloaded yet'));
+    }
+    return box;
+  }
+  function block(title) {
+    var b = el('div', 'block');
+    if (title) b.appendChild(el('h3', '', title));
+    return b;
+  }
+  function row(nodes) {
+    var r = el('div', 'dls');
+    nodes.forEach(function (n) { if (n) r.appendChild(n); });
+    return r.children.length ? r : null;
+  }
+  function keyBlock(k) {
+    var b = block('Your ' + k.product + ' key');
+    var r = el('div', 'keyrow');
+    var code = el('code', '', k.key);
+    var copy = el('button', 'btn ghost small', 'Copy');
+    copy.type = 'button';
+    copy.addEventListener('click', function () {
+      var said = function (t) { copy.textContent = t; setTimeout(function () { copy.textContent = 'Copy'; }, 2000); };
+      var byHand = function () {
+        var done = false;
+        try {
+          var range = document.createRange();
+          range.selectNodeContents(code);
+          var sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          done = document.execCommand('copy');
+        } catch (e) {}
+        said(done ? 'Copied' : 'Selected');
+      };
+      try { navigator.clipboard.writeText(k.key).then(function () { said('Copied'); }, byHand); } catch (e) { byHand(); }
+    });
+    r.appendChild(code);
+    r.appendChild(copy);
+    b.appendChild(r);
+    if (k.limit > 0) b.appendChild(el('p', 'slots', 'Activated on ' + (k.used || 0) + ' of ' + k.limit + ' computers'));
+    return b;
+  }
+  function installerBlocks(list) {
+    var out = [];
+    ['Stride', 'Tendril'].forEach(function (product) {
+      var mine = list.filter(function (i) { return i.product === product; });
+      if (!mine.length) return;
+      var b = block(product);
+      var r = row(mine.map(function (i) { return dlButton('Download for ' + i.label, i.url, 0, false); }));
+      if (r) b.appendChild(r);
+      var links = el('p', 'links');
+      var a = el('a', '', product === 'Stride' ? 'Setup guide' : 'The manual');
+      a.href = product === 'Stride' ? '/setup.html' : '/media/tendril/manual/';
+      links.appendChild(a);
+      b.appendChild(links);
+      out.push(b);
+    });
+    if (out.length) out[out.length - 1].appendChild(el('p', 'note', 'On Windows, if SmartScreen stops the installer, choose More info, then Run anyway.'));
+    return out;
+  }
+  function unzipNote() {
+    var p = el('p', 'note');
+    p.appendChild(document.createTextNode('Unzip the StrideChains into '));
+    p.appendChild(el('code', '', 'Documents/Stride/chains'));
+    p.appendChild(document.createTextNode(' (on a Mac: '));
+    p.appendChild(el('code', '', '~/Documents/Stride/chains'));
+    p.appendChild(document.createTextNode('), then hit Load in Stride, pick a chain and one of its five states, and press play.'));
+    return p;
+  }
+  function fileBlocks(files, extras) {
+    var out = [];
+    var chains = files.filter(function (f) { return f.group === 'chains'; });
+    var sounds = files.filter(function (f) { return f.group === 'sounds'; });
+    if (chains.length) {
+      var b = block('StrideChains, one download per synth');
+      var r = row(chains.map(function (f) { return dlButton(f.label, f.url, f.started_ms, true); }));
+      if (r) b.appendChild(r);
+      b.appendChild(unzipNote());
+      out.push(b);
+    }
+    if (sounds.length) {
+      var s = block('Sounds & Racks');
+      var rs = row(sounds.map(function (f) { return dlButton('Download the Sounds & Racks', f.url, f.started_ms, true); }));
+      if (rs) s.appendChild(rs);
+      s.appendChild(el('p', 'note', "Drop the racks into your User Library and they show up in Live's browser."));
+      out.push(s);
+    }
+    (extras || []).forEach(function (x) {
+      var e = block('Included with Tendril');
+      var re = row([dlButton(x.label, x.url, 0, false)]);
+      if (re) e.appendChild(re);
+      e.appendChild(unzipNote());
+      out.push(e);
+    });
+    return out;
+  }
+  function card(c) {
+    var art = el('article', 'card');
+    art.appendChild(el('h2', '', c.title || 'Your order'));
+    var meta = [day(c.date_ms)];
+    if (c.source === 'lemonsqueezy') meta.push('Lemon Squeezy order ' + c.order + ', from our previous checkout');
+    else if (c.source === 'plugin_boutique') meta.push('Bought at Plugin Boutique');
+    else if (c.order) meta.push('Order ' + c.order);
+    art.appendChild(el('p', 'meta', meta.filter(Boolean).join(' · ')));
+    if (c.state === 'refunded') {
+      art.appendChild(el('p', 'state', 'Refunded' + (c.refunded_ms ? ' on ' + day(c.refunded_ms) : '') + '. Nothing to download here.'));
+      return art;
+    }
+    if (c.state === 'part_refunded') art.appendChild(el('p', 'state', 'Part of this order was refunded.'));
+    (c.keys || []).forEach(function (k) { art.appendChild(keyBlock(k)); });
+    if (c.key_note === 'lemonsqueezy_receipt') {
+      art.appendChild(el('p', 'state', 'Your key from this order is in your Lemon Squeezy receipt.'));
+    }
+    var parts = installerBlocks(c.installers || []).concat(fileBlocks(c.files || [], c.extras || []));
+    if ((c.bundle || []).length) {
+      var b = block('The Stride Bundle installer');
+      var r = row(c.bundle.map(function (x) { return dlButton('Download for ' + x.label, x.url, x.started_ms, true); }));
+      if (r) b.appendChild(r);
+      b.appendChild(el('p', 'note', 'Run it once and everything is in place: Stride, Tendril, the StrideChains, the wavetables and the Sounds & Racks. On Windows, if SmartScreen stops it, choose More info, then Run anyway.'));
+      art.appendChild(b);
+      if (parts.length) {
+        var d = el('details');
+        d.appendChild(el('summary', '', 'Or install the parts one by one'));
+        parts.forEach(function (p) { d.appendChild(p); });
+        art.appendChild(d);
+      }
+    } else {
+      parts.forEach(function (p) { art.appendChild(p); });
+    }
+    return art;
+  }
+  function render(d) {
+    me.email = d.email || '';
+    $('who').textContent = me.email;
+    $('ch-user').value = me.email;
+    var list = $('orders');
+    list.innerHTML = '';
+    var orders = d.orders || [];
+    if (!orders.length) list.appendChild(el('p', 'empty', TXT.empty));
+    orders.forEach(function (c) { list.appendChild(card(c)); });
+    var phone = false;
+    try { phone = window.matchMedia('(max-width: 640px)').matches || window.matchMedia('(pointer: coarse)').matches; } catch (e) {}
+    $('phone').hidden = !phone;
+    show('v-orders');
+  }
+  function openOrders() {
+    var token = loadToken();
+    if (!token) { show('v-signin'); return; }
+    show('v-loading');
+    post({ action: 'purchases_orders', token: token })
+      .then(function (d) {
+        if (d && d.ok) { render(d); return; }
+        if (d && d.status === 'signed_out') { saveToken('', 0); say('si-msg', TXT.signedOut); show('v-signin'); return; }
+        say('si-msg', TXT.oops, 'bad');
+        show('v-signin');
+      })
+      .catch(function () { say('si-msg', TXT.oops, 'bad'); show('v-signin'); });
+  }
+
+  // ── the forms ────────────────────────────────────────────────────────────
+  $('f-signin').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var form = this, email = $('si-email').value.trim(), pw = $('si-pw').value;
+    if (!validEmail(email)) { say('si-msg', TXT.badEmail, 'bad'); return; }
+    if (!pw) { say('si-msg', TXT.wrong, 'bad'); return; }
+    busy(form, true);
+    post({ action: 'purchases_sign_in', email: email, password: pw })
+      .then(function (d) {
+        busy(form, false);
+        if (d && d.ok && d.token) {
+          saveToken(d.token, d.expires_at_ms);
+          $('si-pw').value = '';
+          say('si-msg', '');
+          openOrders();
+          return;
+        }
+        say('si-msg', d && d.status === 'rate_limited' ? TXT.limit : d && d.status === 'no_match' ? TXT.wrong : TXT.oops, 'bad');
+      })
+      .catch(function () { busy(form, false); say('si-msg', TXT.oops, 'bad'); });
+  });
+  $('f-ask').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var form = this, email = $('ask-email').value.trim();
+    if (!validEmail(email)) { say('ask-msg', TXT.badEmail, 'bad'); return; }
+    busy(form, true);
+    post({ action: 'purchases_password', email: email })
+      .then(function (d) {
+        busy(form, false);
+        if (d && d.ok) {
+          $('si-email').value = email;
+          say('si-msg', TXT.sent, 'good');
+          say('ask-msg', '');
+          show('v-signin');
+          try { $('si-pw').focus(); } catch (e) {}
+          return;
+        }
+        say('ask-msg', d && d.status === 'rate_limited' ? TXT.askLimit : d && d.status === 'invalid_email' ? TXT.badEmail : TXT.oops, 'bad');
+      })
+      .catch(function () { busy(form, false); say('ask-msg', TXT.oops, 'bad'); });
+  });
+  $('f-change').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var form = this, cur = $('ch-cur').value, nw = $('ch-new').value;
+    if (nw.length < 10 || nw.trim().toLowerCase() === me.email) { say('ch-msg', TXT.weak, 'bad'); return; }
+    busy(form, true);
+    post({ action: 'purchases_change_password', token: loadToken(), current: cur, new: nw })
+      .then(function (d) {
+        busy(form, false);
+        if (d && d.ok && d.token) {
+          saveToken(d.token, d.expires_at_ms);
+          $('ch-cur').value = '';
+          $('ch-new').value = '';
+          say('ch-msg', TXT.saved, 'good');
+          return;
+        }
+        if (d && d.status === 'signed_out') { saveToken('', 0); say('si-msg', TXT.signedOut); show('v-signin'); return; }
+        say('ch-msg', d && d.status === 'no_match' ? TXT.current : d && d.status === 'weak' ? TXT.weak
+                      : d && d.status === 'rate_limited' ? TXT.limit : TXT.oops, 'bad');
+      })
+      .catch(function () { busy(form, false); say('ch-msg', TXT.oops, 'bad'); });
+  });
+  $('signout').addEventListener('click', function () {
+    saveToken('', 0);
+    $('orders').innerHTML = '';
+    say('si-msg', '');
+    show('v-signin');
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-go]'), function (b) {
+    b.addEventListener('click', function () {
+      var to = b.getAttribute('data-go');
+      if (to === 'v-ask' && !$('ask-email').value) $('ask-email').value = $('si-email').value;
+      if (to === 'v-change') say('ch-msg', '');
+      show(to);
+    });
+  });
+
+  openOrders();
+})();
+</script>
+</body>
+</html>
